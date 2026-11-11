@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WO PLN - Sistem Pendataan & Audit Lapangan</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -12,19 +14,24 @@
             theme: {
                 extend: {
                     colors: {
-                        pln: { blue: '#006B97', lightBlue: '#00A3E0', yellow: '#FFC72C' }
+                        pln: {
+                            blue: '#006B97',
+                            lightBlue: '#00A3E0',
+                            yellow: '#FFC72C'
+                        }
                     }
                 }
             }
         }
     </script>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
-    <!-- Header -->
-    <header class="bg-pln text-white shadow-md sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- Header / Navbar -->
+    <header class="bg-pln-blue text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
             <div class="flex items-center space-x-3">
-                <div class="bg-pln-yellow text-slate-900 p-2 rounded-xl font-bold shadow">
+                <div class="bg-pln-yellow text-slate-900 p-2.5 rounded-xl font-bold shadow-md">
                     <i class="fa-solid fa-bolt text-xl"></i>
                 </div>
                 <div>
@@ -33,65 +40,84 @@
                 </div>
             </div>
             <div class="flex items-center space-x-2">
-                <button onclick="switchTab('tab-history')" id="btn-tab-history" class="px-3 py-2 rounded-lg text-sm font-semibold bg-pln-lightBlue text-white shadow transition"><i class="fa-solid fa-table-list mr-1.5"></i> Riwayat Data</button>
-                <button onclick="switchTab('tab-form')" id="btn-tab-form" class="px-3 py-2 rounded-lg text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition"><i class="fa-solid fa-pen-to-square mr-1.5"></i> Input Form</button>
+                <button onclick="switchTab('tab-history')" id="btn-tab-history" class="px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center">
+                    <i class="fa-solid fa-table-list mr-1.5"></i> Riwayat
+                </button>
+                <button onclick="switchTab('tab-form')" id="btn-tab-form" class="px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center">
+                    <i class="fa-solid fa-pen-to-square mr-1.5"></i> Input
+                </button>
+                <button onclick="switchTab('tab-settings')" id="btn-tab-settings" class="px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center">
+                    <i class="fa-solid fa-gear mr-1.5"></i> Setting
+                </button>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- Main Content Container -->
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6">
+        
         <!-- Status Bar -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
-            <div class="flex items-center space-x-2 text-sm">
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                    <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Ready (Tersimpan Lokal)
+            <div class="flex items-center space-x-3 text-sm">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                    <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Ready
                 </span>
-                <span class="text-slate-400">|</span>
-                <span class="text-slate-600"><i class="fa-solid fa-link text-xs mr-1"></i> Spreadsheet: <span id="sync-status" class="font-medium text-emerald-600">Terhubung</span></span>
+                <span class="text-slate-300">|</span>
+                <span class="text-slate-600"><i class="fa-solid fa-link text-xs mr-1 text-pln-blue"></i> Spreadsheet: <span id="sync-status-text" class="font-medium text-emerald-600">Terhubung</span></span>
             </div>
-            <div class="text-sm text-slate-500 font-medium">Total Entri: <span id="total-count" class="text-pln font-bold">0</span> Data</div>
+            <div class="text-sm text-slate-500 font-medium">Total Entri: <span id="total-count" class="text-pln-blue font-bold">0</span> Data</div>
         </div>
 
         <!-- TAB 1: RIWAYAT DATA -->
         <section id="tab-history" class="space-y-4">
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <div class="flex flex-wrap justify-between items-center gap-4 mb-4">
+                <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
                     <div>
-                        <h2 class="text-lg font-bold text-slate-800 flex items-center"><i class="fa-solid fa-database text-pln mr-2"></i> Riwayat Data Survey PLN</h2>
-                        <p class="text-xs text-slate-500">Daftar entri pendataan yang telah dicatat di lapangan.</p>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-database text-pln-blue mr-2"></i> Riwayat Data Survey PLN
+                        </h2>
+                        <p class="text-xs text-slate-500">Daftar entri pendataan lapangan yang tercatat.</p>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-sm font-medium shadow transition"><i class="fa-solid fa-file-excel mr-1.5"></i> Export CSV / Excel</button>
-                        <button onclick="clearLogs()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-sm font-medium shadow transition"><i class="fa-solid fa-trash mr-1.5"></i> Hapus Log</button>
+                        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition flex items-center">
+                            <i class="fa-solid fa-file-excel mr-2"></i> Export Excel
+                        </button>
+                        <button onclick="clearLogs()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition flex items-center">
+                            <i class="fa-solid fa-trash mr-2"></i> Hapus Log
+                        </button>
                     </div>
                 </div>
 
-                <!-- Filter & Search -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                    <input type="text" id="search-input" oninput="renderHistoryTable()" placeholder="Cari IDPEL / Nama Pelanggan..." class="bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                    <select id="filter-petugas" onchange="renderHistoryTable()" class="bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
+                <!-- Filter & Search Controls -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                        </span>
+                        <input type="text" id="search-input" oninput="renderHistoryTable()" placeholder="Cari IDPEL / Nama Pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
+                    </div>
+                    <select id="filter-petugas" onchange="renderHistoryTable()" class="bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
                         <option value="">-- Semua User Petugas --</option>
                     </select>
-                    <select id="filter-keterangan" onchange="renderHistoryTable()" class="bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
+                    <select id="filter-keterangan" onchange="renderHistoryTable()" class="bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
                         <option value="">-- Semua Status Keterangan --</option>
                     </select>
                 </div>
 
-                <!-- Table -->
+                <!-- Table Container -->
                 <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table class="w-full text-left text-sm">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
                         <thead class="bg-slate-100 text-slate-700 uppercase text-xs tracking-wider border-b border-slate-200">
                             <tr>
-                                <th class="p-3">Waktu</th>
-                                <th class="p-3">Petugas</th>
-                                <th class="p-3">IDPEL</th>
-                                <th class="p-3">Nama Pelanggan</th>
-                                <th class="p-3">Alamat</th>
-                                <th class="p-3">Tarif / Daya</th>
-                                <th class="p-3">Keterangan</th>
-                                <th class="p-3">Foto</th>
-                                <th class="p-3">Status Sync</th>
+                                <th class="p-3.5">Timestamp</th>
+                                <th class="p-3.5">Petugas</th>
+                                <th class="p-3.5">IDPEL</th>
+                                <th class="p-3.5">Nama Pelanggan</th>
+                                <th class="p-3.5">Alamat Pelanggan</th>
+                                <th class="p-3.5">Tarif / Daya</th>
+                                <th class="p-3.5">Keterangan</th>
+                                <th class="p-3.5">Foto Bukti</th>
+                                <th class="p-3.5">Status</th>
                             </tr>
                         </thead>
                         <tbody id="history-table-body" class="divide-y divide-slate-200">
@@ -107,22 +133,36 @@
             <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
                 <div class="border-b border-slate-200 pb-4 mb-6 flex justify-between items-center">
                     <div>
-                        <h2 class="text-xl font-bold text-slate-800 flex items-center"><i class="fa-solid fa-file-pen text-pln mr-2"></i> Form Pendataan Lapangan</h2>
-                        <p class="text-xs text-slate-500">Lengkapi formulir survey di bawah ini.</p>
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-file-pen text-pln-blue mr-2"></i> Form Pendataan Lapangan
+                        </h2>
+                        <p class="text-xs text-slate-500">Lengkapi data objek survey dan ambil foto bukti lapangan.</p>
                     </div>
                 </div>
 
                 <form id="survey-form" class="space-y-5" onsubmit="handleFormSubmit(event)">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <!-- User Petugas -->
+                        <!-- User Petugas (Lengkap 01 sampai 16) -->
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">USER PETUGAS <span class="text-red-500">*</span></label>
                             <select id="user_petugas" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
                                 <option value="">-- Pilih Petugas --</option>
                                 <option value="51806.01">51806.01</option>
+                                <option value="51806.02">51806.02</option>
+                                <option value="51806.03">51806.03</option>
                                 <option value="51806.04">51806.04</option>
+                                <option value="51806.05">51806.05</option>
+                                <option value="51806.06">51806.06</option>
                                 <option value="51806.07">51806.07</option>
+                                <option value="51806.08">51806.08</option>
                                 <option value="51806.09">51806.09</option>
+                                <option value="51806.10">51806.10</option>
+                                <option value="51806.11">51806.11</option>
+                                <option value="51806.12">51806.12</option>
+                                <option value="51806.13">51806.13</option>
+                                <option value="51806.14">51806.14</option>
+                                <option value="51806.15">51806.15</option>
+                                <option value="51806.16">51806.16</option>
                             </select>
                         </div>
                         <!-- IDPEL -->
@@ -136,17 +176,17 @@
                         <!-- Nama Pelanggan -->
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">NAMA PELANGGAN <span class="text-red-500">*</span></label>
-                            <input type="text" id="nama_pelanggan" required placeholder="Nama Pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
+                            <input type="text" id="nama_pelanggan" required placeholder="Nama lengkap pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
                         </div>
                         <!-- Alamat Pelanggan -->
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">ALAMAT PELANGGAN <span class="text-red-500">*</span></label>
-                            <input type="text" id="alamat_pelanggan" required placeholder="Alamat Pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
+                            <input type="text" id="alamat_pelanggan" required placeholder="Alamat lokasi pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <!-- Tarif -->
+                        <!-- Tarif (Lengkap) -->
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">TARIF <span class="text-red-500">*</span></label>
                             <select id="tarif" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
@@ -155,11 +195,19 @@
                                 <option value="R1M">R1M</option>
                                 <option value="R1T">R1T</option>
                                 <option value="R2">R2</option>
+                                <option value="R3">R3</option>
                                 <option value="B1">B1</option>
                                 <option value="B2">B2</option>
+                                <option value="B3">B3</option>
+                                <option value="I1">I1</option>
+                                <option value="I2">I2</option>
+                                <option value="I3">I3</option>
+                                <option value="P1">P1</option>
+                                <option value="P2">P2</option>
+                                <option value="P3">P3</option>
                             </select>
                         </div>
-                        <!-- Daya -->
+                        <!-- Daya (Lengkap) -->
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">DAYA <span class="text-red-500">*</span></label>
                             <select id="daya" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
@@ -168,78 +216,133 @@
                                 <option value="900 VA">900 VA</option>
                                 <option value="1300 VA">1300 VA</option>
                                 <option value="2200 VA">2200 VA</option>
+                                <option value="3500 VA">3500 VA</option>
+                                <option value="4400 VA">4400 VA</option>
+                                <option value="5500 VA">5500 VA</option>
+                                <option value="6600 VA">6600 VA</option>
+                                <option value="10600 VA">10600 VA</option>
+                                <option value="13200 VA">13200 VA</option>
                             </select>
                         </div>
                     </div>
 
-                    <!-- Keterangan -->
+                    <!-- Keterangan (Tiga Opsi Sesuai Keinginan) -->
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">KETERANGAN <span class="text-red-500">*</span></label>
                         <select id="keterangan" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
                             <option value="RATTING PLN MOBILE">RATTING PLN MOBILE</option>
-                            <option value="VALIDASI RUMAH KOSONG">VALIDASI RUMAH KOSONG</option>
-                            <option value="TIDAK KETEMU">TIDAK KETEMU</option>
+                            <option value="TRANSAKSI PLN MOBILE">TRANSAKSI PLN MOBILE</option>
+                            <option value="SOSIALISASI PLN MOBILE">SOSIALISASI PLN MOBILE</option>
                         </select>
                     </div>
 
-                    <!-- Upload Foto -->
+                    <!-- Upload Foto dengan Pratinjau -->
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">FOTO BUKTI LAPANGAN <span class="text-red-500">*</span></label>
-                        <div class="mt-1 border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center hover:border-pln-lightBlue transition bg-slate-50 relative">
+                        <div class="mt-1 border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-pln-lightBlue transition bg-slate-50 relative group cursor-pointer">
                             <input type="file" id="foto_input" accept="image/*" capture="environment" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="previewImage(event)">
+                            
                             <div id="upload-placeholder" class="space-y-2">
-                                <div class="w-10 h-10 mx-auto rounded-full bg-pln-lightBlue/10 flex items-center justify-center text-pln-lightBlue text-lg">
+                                <div class="w-12 h-12 mx-auto rounded-full bg-pln-lightBlue/10 flex items-center justify-center text-pln-lightBlue text-xl group-hover:scale-110 transition">
                                     <i class="fa-solid fa-camera"></i>
                                 </div>
-                                <p class="text-xs text-slate-600 font-medium">Ketuk untuk Ambil Foto atau Unggah</p>
+                                <p class="text-xs text-slate-700 font-semibold">Ketuk untuk Mengambil Foto atau Unggah Berkas</p>
+                                <p class="text-[10px] text-slate-400">Format yang didukung: JPG, PNG, WEBP</p>
                             </div>
+                            
                             <div id="preview-container" class="hidden relative">
-                                <img id="img-preview" class="max-h-40 mx-auto rounded-xl shadow">
-                                <p class="text-xs text-emerald-600 mt-2 font-medium"><i class="fa-solid fa-check-circle mr-1"></i> Foto berhasil dipilih</p>
+                                <img id="img-preview" class="max-h-48 mx-auto rounded-xl shadow-md object-contain">
+                                <p class="text-xs text-emerald-600 mt-2 font-semibold flex items-center justify-center">
+                                    <i class="fa-solid fa-circle-check mr-1.5"></i> Foto bukti lapangan siap dikirim
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Tombol Aksi -->
+                    <!-- Tombol Aksi Form -->
                     <div class="pt-4 flex items-center justify-end space-x-3">
                         <button type="button" onclick="switchTab('tab-history')" class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-100 transition">Batal</button>
-                        <button type="submit" id="btn-submit" class="px-6 py-2.5 rounded-xl bg-pln hover:bg-pln-lightBlue text-white text-sm font-semibold shadow transition flex items-center">
+                        <button type="submit" id="btn-submit" class="px-6 py-2.5 rounded-xl bg-pln-blue hover:bg-pln-lightBlue text-white text-sm font-semibold shadow transition flex items-center">
                             <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Simpan & Kirim
                         </button>
                     </div>
                 </form>
             </div>
         </section>
+
+        <!-- TAB 3: SETTING URL GOOGLE APPS SCRIPT -->
+        <section id="tab-settings" class="hidden space-y-6">
+            <div class="max-w-xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+                <div class="border-b border-slate-200 pb-4 mb-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                        <i class="fa-solid fa-gear text-pln-blue mr-2"></i> Pengaturan Koneksi Spreadsheet
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">Masukkan URL Web App Google Apps Script Anda di bawah ini agar data dan foto otomatis tersinkronisasi.</p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">URL Web App Apps Script:</label>
+                        <input type="text" id="setting-script-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
+                    </div>
+                    <button onclick="saveSettings()" class="w-full bg-pln-blue hover:bg-pln-lightBlue text-white py-2.5 rounded-xl font-semibold text-sm shadow transition flex items-center justify-center">
+                        <i class="fa-solid fa-floppy-disk mr-2"></i> Simpan Pengaturan URL
+                    </button>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <!-- Toast Notification -->
+    <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
 
-    <!-- Script Utama -->
+    <!-- Application Script -->
     <script>
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbz_KjCq7mB9GvJ5d3R1X8vF1xZ9g7Q2v1J2x7J2v7J2v7J2v7J2/exec"; // Ganti dengan URL deployment Web App Apps Script Anda yang valid jika perlu
-
         let surveyLogs = JSON.parse(localStorage.getItem('wo_pln_logs')) || [];
+        let scriptUrl = localStorage.getItem('wo_pln_script_url') || "";
 
         window.onload = function() {
+            const settingInput = document.getElementById('setting-script-url');
+            if (settingInput) settingInput.value = scriptUrl;
             renderHistoryTable();
             populateFilters();
         };
 
         function switchTab(tabId) {
-            document.getElementById('tab-history').classList.add('hidden');
-            document.getElementById('tab-form').classList.add('hidden');
-            
-            document.getElementById('btn-tab-history').className = "px-3 py-2 rounded-lg text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition";
-            document.getElementById('btn-tab-form').className = "px-3 py-2 rounded-lg text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition";
+            const tabHistory = document.getElementById('tab-history');
+            const tabForm = document.getElementById('tab-form');
+            const tabSettings = document.getElementById('tab-settings');
 
-            document.getElementById(tabId).classList.remove('hidden');
+            if (tabHistory) tabHistory.classList.add('hidden');
+            if (tabForm) tabForm.classList.add('hidden');
+            if (tabSettings) tabSettings.classList.add('hidden');
+            
+            const btnHistory = document.getElementById('btn-tab-history');
+            const btnForm = document.getElementById('btn-tab-form');
+            const btnSettings = document.getElementById('btn-tab-settings');
+
+            if (btnHistory) btnHistory.className = "px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center";
+            if (btnForm) btnForm.className = "px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center";
+            if (btnSettings) btnSettings.className = "px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center";
+
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) targetTab.classList.remove('hidden');
+
             if (tabId === 'tab-history') {
-                document.getElementById('btn-tab-history').className = "px-3 py-2 rounded-lg text-sm font-semibold bg-pln-lightBlue text-white shadow transition";
+                if (btnHistory) btnHistory.className = "px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center";
                 renderHistoryTable();
-            } else {
-                document.getElementById('btn-tab-form').className = "px-3 py-2 rounded-lg text-sm font-semibold bg-pln-lightBlue text-white shadow transition";
+            } else if (tabId === 'tab-form') {
+                if (btnForm) btnForm.className = "px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center";
+            } else if (tabId === 'tab-settings') {
+                if (btnSettings) btnSettings.className = "px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center";
             }
+        }
+
+        function saveSettings() {
+            const url = document.getElementById('setting-script-url').value.trim();
+            localStorage.setItem('wo_pln_script_url', url);
+            scriptUrl = url;
+            showToast('Pengaturan URL berhasil disimpan!', 'success');
+            switchTab('tab-history');
         }
 
         function previewImage(event) {
@@ -257,7 +360,7 @@
 
         async function handleFormSubmit(e) {
             e.preventDefault();
-            showToast('Memproses data & foto...', 'info');
+            showToast('Memproses data & konversi foto...', 'info');
 
             const submitBtn = document.getElementById('btn-submit');
             submitBtn.disabled = true;
@@ -299,7 +402,7 @@
                         showToast('Tersimpan lokal (Offline Mode)', 'warning');
                     }
                 } else {
-                    showToast('Tersimpan di memori lokal', 'success');
+                    showToast('Tersimpan lokal (Atur URL Spreadsheet di menu Setting)', 'warning');
                 }
 
                 document.getElementById('survey-form').reset();
@@ -309,6 +412,7 @@
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-2"></i> Simpan & Kirim';
                 
+                populateFilters();
                 switchTab('tab-history');
             };
 
@@ -341,31 +445,31 @@
             document.getElementById('total-count').innerText = filtered.length;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-6 text-slate-400">Belum ada data tercatat.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 font-medium">Belum ada data survei yang tercatat.</td></tr>`;
                 return;
             }
 
-            filtered.forEach((item, index) => {
+            filtered.forEach((item) => {
                 let fotoBadge = item.foto && item.foto.startsWith('http') ? 
-                    `<a href="${item.foto}" target="_blank" class="text-pln underline font-medium">Lihat Foto</a>` : 
-                    (item.foto ? 'Tersimpan (Base64)' : '-');
+                    `<a href="${item.foto}" target="_blank" class="text-pln-blue font-semibold underline hover:text-pln-lightBlue"><i class="fa-solid fa-image mr-1"></i> Lihat Foto</a>` : 
+                    (item.foto ? '<span class="text-emerald-600 font-medium">Tersimpan (Base64)</span>' : '-');
 
                 let syncBadge = item.synced ? 
-                    '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">Synced</span>' : 
-                    '<span class="px-2 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">Local</span>';
+                    '<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">Synced</span>' : 
+                    '<span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">Local</span>';
 
                 let tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition";
                 tr.innerHTML = `
-                    <td class="p-3 text-xs text-slate-500">${item.timestamp}</td>
-                    <td class="p-3 font-medium">${item.user_petugas}</td>
-                    <td class="p-3 font-semibold text-pln">${item.idpel}</td>
-                    <td class="p-3">${item.nama_pelanggan}</td>
-                    <td class="p-3 text-xs text-slate-600">${item.alamat_pelanggan}</td>
-                    <td class="p-3 text-xs">${item.tarif} / ${item.daya}</td>
-                    <td class="p-3 text-xs"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-700 font-medium">${item.keterangan}</span></td>
-                    <td class="p-3 text-xs">${fotoBadge}</td>
-                    <td class="p-3">${syncBadge}</td>
+                    <td class="p-3.5 text-xs text-slate-500">${item.timestamp}</td>
+                    <td class="p-3.5 font-medium">${item.user_petugas}</td>
+                    <td class="p-3.5 font-semibold text-pln-blue">${item.idpel}</td>
+                    <td class="p-3.5">${item.nama_pelanggan}</td>
+                    <td class="p-3.5 text-xs text-slate-600">${item.alamat_pelanggan}</td>
+                    <td class="p-3.5 text-xs">${item.tarif} / ${item.daya}</td>
+                    <td class="p-3.5 text-xs"><span class="px-2 py-1 bg-slate-100 rounded-lg text-slate-700 font-medium">${item.keterangan}</span></td>
+                    <td class="p-3.5 text-xs">${fotoBadge}</td>
+                    <td class="p-3.5">${syncBadge}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -376,11 +480,13 @@
             const ketSet = [...new Set(surveyLogs.map(i => i.keterangan))];
 
             const pSelect = document.getElementById('filter-petugas');
+            pSelect.innerHTML = '<option value="">-- Semua User Petugas --</option>';
             petugasSet.forEach(p => {
                 if(p) pSelect.innerHTML += `<option value="${p}">${p}</option>`;
             });
 
             const kSelect = document.getElementById('filter-keterangan');
+            kSelect.innerHTML = '<option value="">-- Semua Status Keterangan --</option>';
             ketSet.forEach(k => {
                 if(k) kSelect.innerHTML += `<option value="${k}">${k}</option>`;
             });
@@ -391,6 +497,7 @@
                 surveyLogs = [];
                 localStorage.removeItem('wo_pln_logs');
                 renderHistoryTable();
+                populateFilters();
                 showToast('Log berhasil dibersihkan', 'info');
             }
         }
