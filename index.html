@@ -439,18 +439,42 @@
             surveyLogs.unshift(formData);
             localStorage.setItem('wo_pln_logs', JSON.stringify(surveyLogs));
 
-            if (scriptUrl) {
-                showToast('Mengirim data ke Google Sheets...', 'info');
-                try {
-                    await fetch(scriptUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(formData)
-                    });
-                    formData.synced = true;
-                    localStorage.setItem('wo_pln_logs', JSON.stringify(surveyLogs));
-                    showToast('Data tersimpan & terkirim ke Sheets!', 'success');
+           if (scriptUrl) {
+        showToast('Mengirim data ke Google Sheets...', 'info');
+        
+        // 1. Definisikan fungsi pengiriman terlebih dahulu
+        const kirimDataFinal = async (base64Img) => {
+            formData.foto = base64Img || '';
+
+            try {
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                formData.synced = true;
+                localStorage.setItem('wo_pln_logs', JSON.stringify(surveyLogs));
+                showToast('Data tersimpan & terkirim ke Sheets!', 'success');
+            } catch (err) {
+                showToast('Tersimpan secara lokal (Sheets Offline)', 'warning');
+            }
+        };
+
+        // 2. Cek apakah ada file foto yang dipilih, lalu proses
+        const fotoInput = document.getElementById('foto_input');
+        const fotoFile = fotoInput && fotoInput.files[0] ? fotoInput.files[0] : null;
+
+        if (fotoFile) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                await kirimDataFinal(e.target.result); // Kirim beserta base64 foto
+            };
+            reader.readAsDataURL(fotoFile);
+        } else {
+            await kirimDataFinal(''); // Kirim tanpa foto
+        }
+    }
                 } catch (err) {
                     showToast('Tersimpan secara lokal (Sheets Offline)', 'warning');
                 }
