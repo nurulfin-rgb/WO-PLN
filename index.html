@@ -4,111 +4,282 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WO PLN - Sistem Pendataan & Audit Lapangan</title>
-    <!-- Tailwind CSS CDN -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        pln: {
-                            blue: '#006B97',
-                            lightBlue: '#00A3E0',
-                            yellow: '#FFC72C'
-                        }
-                    }
-                }
-            }
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- SheetJS (XLSX) untuk Import & Export File Excel .xlsx -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
         }
-    </script>
+        .pln-header {
+            background: linear-gradient(135deg, #006687 0%, #0082ab 100%);
+        }
+        .pln-btn-nav {
+            background-color: rgba(255, 255, 255, 0.14);
+            transition: all 0.2s ease;
+        }
+        .pln-btn-nav:hover {
+            background-color: rgba(255, 255, 255, 0.25);
+        }
+        .pln-btn-nav.active {
+            background-color: #ffffff;
+            color: #006687;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+        }
+        .table-responsive::-webkit-scrollbar {
+            height: 6px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
+<body class="min-h-screen text-slate-800 flex flex-col">
 
-    <!-- Header / Navbar -->
-    <header class="bg-pln-blue text-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-            <div class="flex items-center space-x-3">
-                <div class="bg-pln-yellow text-slate-900 p-2.5 rounded-xl font-bold shadow-md">
-                    <i class="fa-solid fa-bolt text-xl"></i>
+    <!-- Top Navigation Bar -->
+    <header class="pln-header text-white px-4 md:px-8 py-3.5 shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <!-- Brand Logo & Title -->
+            <div class="flex items-center space-x-3 w-full sm:w-auto">
+                <div class="bg-amber-400 text-amber-950 w-10 h-10 rounded-xl flex items-center justify-center shadow-inner shrink-0">
+                    <i class="bi bi-lightning-charge-fill text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-extrabold tracking-wide">WO PLN</h1>
-                    <p class="text-xs text-slate-200">Sistem Pendataan & Audit Lapangan</p>
+                    <h1 class="text-xl font-extrabold tracking-tight leading-none">WO PLN</h1>
+                    <p class="text-xs text-sky-100 mt-1 font-normal">Sistem Pendataan & Audit Lapangan</p>
                 </div>
             </div>
-            <div class="flex items-center space-x-2">
-                <button onclick="switchTab('tab-history')" id="btn-tab-history" class="px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center">
-                    <i class="fa-solid fa-table-list mr-1.5"></i> Riwayat
+
+            <!-- Header Nav Buttons -->
+            <div class="flex items-center space-x-2 w-full sm:w-auto justify-end flex-wrap gap-y-2">
+                <button id="nav-input" onclick="switchTab('input')" class="pln-btn-nav active px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-2">
+                    <i class="bi bi-pencil-square"></i>
+                    <span>Input</span>
                 </button>
-                <button onclick="switchTab('tab-form')" id="btn-tab-form" class="px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center">
-                    <i class="fa-solid fa-pen-to-square mr-1.5"></i> Input
+                <button id="nav-riwayat" onclick="switchTab('riwayat')" class="pln-btn-nav px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-2">
+                    <i class="bi bi-card-list"></i>
+                    <span>Riwayat</span>
+                    <i id="lock-icon-riwayat" class="bi bi-lock-fill text-xs text-amber-300"></i>
                 </button>
-                <button onclick="switchTab('tab-settings')" id="btn-tab-settings" class="px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center">
-                    <i class="fa-solid fa-gear mr-1.5"></i> Setting
+                <button id="nav-setting" onclick="switchTab('setting')" class="pln-btn-nav px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-2">
+                    <i class="bi bi-gear-fill"></i>
+                    <span>Setting</span>
+                </button>
+                <button id="btn-logout-admin" onclick="logoutAdmin()" class="hidden bg-rose-500 hover:bg-rose-600 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition shadow-sm">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Logout Admin</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- Main Content Container -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6">
-        
-        <!-- Status Bar -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
-            <div class="flex items-center space-x-3 text-sm">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                    <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Ready
+    <!-- Main Container -->
+    <main class="max-w-7xl w-full mx-auto px-4 md:px-8 py-6 flex-1">
+
+        <!-- Status Header Bar -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 mb-6 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center flex-wrap gap-3 sm:gap-4">
+                <span class="inline-flex items-center bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-emerald-200">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
+                    Ready
                 </span>
-                <span class="text-slate-300">|</span>
-                <span class="text-slate-600"><i class="fa-solid fa-link text-xs mr-1 text-pln-blue"></i> Spreadsheet: <span id="sync-status-text" class="font-medium text-emerald-600">Terhubung</span></span>
+                <span class="text-xs font-medium text-slate-500 sm:border-l sm:border-slate-200 sm:pl-4 flex items-center gap-1.5">
+                    <i class="bi bi-link-45deg text-base text-emerald-600"></i>
+                    Spreadsheet: <strong id="spreadsheet-status" class="text-emerald-600 font-semibold">Terhubung</strong>
+                </span>
+                <span id="admin-badge" class="hidden text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5">
+                    <i class="bi bi-shield-check"></i> Admin Active
+                </span>
             </div>
-            <div class="text-sm text-slate-500 font-medium">Total Entri: <span id="total-count" class="text-pln-blue font-bold">0</span> Data</div>
+            
+            <div class="flex items-center gap-2 text-xs font-semibold">
+                <div class="bg-sky-50 text-sky-800 px-3 py-1.5 rounded-xl border border-sky-200/70">
+                    Total Database WO: <span id="stat-total-db" class="font-extrabold">0</span>
+                </div>
+                <div class="bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-200/70">
+                    Total Selesai: <span id="stat-total-selesai" class="font-extrabold">0</span>
+                </div>
+            </div>
         </div>
 
-        <!-- TAB 1: RIWAYAT DATA -->
-        <section id="tab-history" class="space-y-4">
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <!-- ===================================================================== -->
+        <!-- TAB 1: INPUT FORM WO PLN (DEFAULT AKTIF - BERBASIS DATABASE TARGET)   -->
+        <!-- ===================================================================== -->
+        <section id="tab-input-content" class="block">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 md:p-7 max-w-3xl mx-auto">
+                <div class="border-b border-slate-100 pb-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                        <h2 class="text-lg font-bold text-slate-800 flex items-center">
-                            <i class="fa-solid fa-database text-pln-blue mr-2"></i> Riwayat Data Survey PLN
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i class="bi bi-clipboard2-check-fill text-cyan-600 text-xl"></i>
+                            Form Pengerjaan Target WO
                         </h2>
-                        <p class="text-xs text-slate-500">Daftar entri pendataan lapangan yang tercatat.</p>
+                        <p class="text-xs text-slate-500 mt-1">Pilih <strong>User Petugas</strong> dan <strong>IDPEL</strong> dari database untuk pengisian otomatis.</p>
                     </div>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition flex items-center">
-                            <i class="fa-solid fa-file-excel mr-2"></i> Export Excel
+                    <span id="petugas-progress-badge" class="hidden text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 px-3 py-1.5 rounded-xl self-start">
+                        Sisa Target: 0
+                    </span>
+                </div>
+
+                <form id="wo-form" onsubmit="handleFormSubmit(event)" class="space-y-5">
+                    <!-- Langkah 1 & 2: Pilih Petugas & Pilih IDPEL -->
+                    <div class="bg-sky-50/70 p-4 rounded-2xl border border-sky-100 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                                    <span class="bg-cyan-600 text-white px-1.5 py-0.5 rounded text-[10px] mr-1">1</span>
+                                    Pilih User Petugas
+                                </label>
+                                <select id="input-petugas" onchange="onPetugasChange()" required class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500 outline-none shadow-sm">
+                                    <option value="">-- Pilih User Petugas --</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                                    <span class="bg-cyan-600 text-white px-1.5 py-0.5 rounded text-[10px] mr-1">2</span>
+                                    Pilih IDPEL
+                                </label>
+                                <select id="input-idpel" onchange="onIdpelChange()" required disabled class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500 outline-none shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                                    <option value="">-- Pilih User Petugas Dahulu --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Langkah 3: Auto-Fill Data Pelanggan -->
+                    <div class="space-y-4 pt-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                                <span class="bg-slate-600 text-white px-1.5 py-0.5 rounded text-[10px]">3</span>
+                                Detail Pelanggan (Otomatis dari Database)
+                            </span>
+                            <span id="status-target-indicator" class="hidden text-[11px] font-bold px-2.5 py-0.5 rounded-full"></span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Pelanggan</label>
+                                <input type="text" id="input-nama" readonly placeholder="Otomatis terisi..." class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none cursor-not-allowed">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">Tarif / Daya</label>
+                                <input type="text" id="input-tarif-daya" readonly placeholder="Otomatis terisi..." class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none cursor-not-allowed">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Alamat Pelanggan</label>
+                            <input type="text" id="input-alamat" readonly placeholder="Otomatis terisi..." class="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-not-allowed">
+                        </div>
+                    </div>
+
+                    <!-- Langkah 4: Keterangan (3 Opsi Persis) & Foto Bukti -->
+                    <div class="border-t border-slate-100 pt-4 space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                                <span class="bg-cyan-600 text-white px-1.5 py-0.5 rounded text-[10px] mr-1">4</span>
+                                Keterangan
+                            </label>
+                            <select id="input-keterangan" required class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-cyan-500 outline-none">
+                                <option value="RATTING PLN MOBILE">RATTING PLN MOBILE</option>
+                                <option value="TRANSAKSI PLN MOBILE">TRANSAKSI PLN MOBILE</option>
+                                <option value="SOSIALISASI PLN MOBILE">SOSIALISASI PLN MOBILE</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Upload / Ambil Foto Bukti Lapangan</label>
+                            <div class="border-2 border-dashed border-slate-300 hover:border-cyan-500 bg-slate-50/80 p-4 rounded-2xl text-center cursor-pointer transition relative">
+                                <input type="file" id="foto-file" accept="image/*" required class="hidden" onchange="handlePhotoPreview(this)">
+                                <label for="foto-file" class="cursor-pointer block">
+                                    <div id="photo-placeholder">
+                                        <i class="bi bi-camera-fill text-3xl text-cyan-600 mb-1.5 block"></i>
+                                        <p class="text-xs text-slate-700 font-semibold">Ketuk di sini untuk ambil foto / pilih gambar</p>
+                                        <p id="auto-filename-hint" class="text-[11px] text-slate-400 mt-1">Nama file otomatis: <span class="font-mono font-semibold text-cyan-700">WO_&lt;IDPEL&gt;.jpg</span></p>
+                                    </div>
+                                    <div id="photo-preview-box" class="hidden flex flex-col items-center">
+                                        <img id="photo-preview-img" src="" alt="Preview Foto" class="max-h-44 rounded-xl shadow-sm border border-slate-200 mb-2 object-contain">
+                                        <span id="photo-filename-badge" class="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 text-[11px] font-bold px-3 py-1 rounded-full">
+                                            <i class="bi bi-file-earmark-image"></i> WO_IDPEL.jpg
+                                        </span>
+                                        <span class="text-[11px] text-cyan-600 underline mt-1">Klik untuk ganti foto</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-submit" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl transition shadow-md flex items-center justify-center space-x-2">
+                        <i class="bi bi-send-check-fill text-base"></i>
+                        <span>SIMPAN & KIRIM LAPORAN</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 2: RIWAYAT DATA SURVEY PLN (DILINDUNGI PIN ADMIN)                 -->
+        <!-- ===================================================================== -->
+        <section id="tab-riwayat-content" class="hidden">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 md:p-6">
+                
+                <!-- Card Header with Actions -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i class="bi bi-database-fill-check text-cyan-600"></i>
+                            Riwayat Data Survey PLN
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">Daftar entri pendataan lapangan yang sudah dikerjakan & tercatat.</p>
+                    </div>
+
+                    <div class="flex items-center space-x-3 w-full md:w-auto">
+                        <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center justify-center space-x-2 transition shadow-sm w-1/2 md:w-auto">
+                            <i class="bi bi-file-earmark-spreadsheet-fill"></i>
+                            <span>Export Excel (.xlsx)</span>
                         </button>
-                        <button onclick="clearLogs()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow transition flex items-center">
-                            <i class="fa-solid fa-trash mr-2"></i> Hapus Log
+                        <button onclick="clearLogConfirm()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center justify-center space-x-2 transition shadow-sm w-1/2 md:w-auto">
+                            <i class="bi bi-trash3-fill"></i>
+                            <span>Hapus Log</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Filter & Search Controls -->
+                <!-- Filters Section -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
                     <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <i class="fa-solid fa-magnifying-glass text-sm"></i>
-                        </span>
-                        <input type="text" id="search-input" oninput="renderHistoryTable()" placeholder="Cari IDPEL / Nama Pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
+                        <i class="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="search-input" onkeyup="renderHistoryTable()" placeholder="Cari IDPEL / Nama Pelanggan..." class="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-cyan-500 focus:bg-white transition outline-none">
                     </div>
-                    <select id="filter-petugas" onchange="renderHistoryTable()" class="bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                        <option value="">-- Semua User Petugas --</option>
-                    </select>
-                    <select id="filter-keterangan" onchange="renderHistoryTable()" class="bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                        <option value="">-- Semua Status Keterangan --</option>
-                    </select>
+
+                    <div>
+                        <select id="filter-petugas" onchange="renderHistoryTable()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:ring-2 focus:ring-cyan-500 focus:bg-white transition outline-none">
+                            <option value="">-- Semua User Petugas --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <select id="filter-keterangan" onchange="renderHistoryTable()" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:ring-2 focus:ring-cyan-500 focus:bg-white transition outline-none">
+                            <option value="">-- Semua Keterangan --</option>
+                            <option value="RATTING PLN MOBILE">RATTING PLN MOBILE</option>
+                            <option value="TRANSAKSI PLN MOBILE">TRANSAKSI PLN MOBILE</option>
+                            <option value="SOSIALISASI PLN MOBILE">SOSIALISASI PLN MOBILE</option>
+                        </select>
+                    </div>
                 </div>
 
-                <!-- Table Container -->
-                <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table class="w-full text-left text-sm whitespace-nowrap">
-                        <thead class="bg-slate-100 text-slate-700 uppercase text-xs tracking-wider border-b border-slate-200">
-                            <tr>
+                <!-- Data Table -->
+                <div class="overflow-x-auto table-responsive border border-slate-200/80 rounded-xl">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                 <th class="p-3.5">Timestamp</th>
                                 <th class="p-3.5">Petugas</th>
                                 <th class="p-3.5">IDPEL</th>
@@ -117,420 +288,1151 @@
                                 <th class="p-3.5">Tarif / Daya</th>
                                 <th class="p-3.5">Keterangan</th>
                                 <th class="p-3.5">Foto Bukti</th>
-                                <th class="p-3.5">Status</th>
+                                <th class="p-3.5 text-center">Status</th>
                             </tr>
                         </thead>
-                        <tbody id="history-table-body" class="divide-y divide-slate-200">
-                            <!-- Populated dynamically -->
+                        <tbody id="history-table-body" class="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                            <!-- Diisi otomatis via JS -->
                         </tbody>
                     </table>
                 </div>
+
             </div>
         </section>
 
-        <!-- TAB 2: FORM INPUT -->
-        <section id="tab-form" class="hidden space-y-6">
-            <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-                <div class="border-b border-slate-200 pb-4 mb-6 flex justify-between items-center">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800 flex items-center">
-                            <i class="fa-solid fa-file-pen text-pln-blue mr-2"></i> Form Pendataan Lapangan
-                        </h2>
-                        <p class="text-xs text-slate-500">Lengkapi data objek survey dan ambil foto bukti lapangan.</p>
-                    </div>
-                </div>
-
-                <form id="survey-form" class="space-y-5" onsubmit="handleFormSubmit(event)">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <!-- User Petugas (Lengkap 01 sampai 16) -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">USER PETUGAS <span class="text-red-500">*</span></label>
-                            <select id="user_petugas" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                                <option value="">-- Pilih Petugas --</option>
-                                <option value="51806.01">51806.01</option>
-                                <option value="51806.02">51806.02</option>
-                                <option value="51806.03">51806.03</option>
-                                <option value="51806.04">51806.04</option>
-                                <option value="51806.05">51806.05</option>
-                                <option value="51806.06">51806.06</option>
-                                <option value="51806.07">51806.07</option>
-                                <option value="51806.08">51806.08</option>
-                                <option value="51806.09">51806.09</option>
-                                <option value="51806.10">51806.10</option>
-                                <option value="51806.11">51806.11</option>
-                                <option value="51806.12">51806.12</option>
-                                <option value="51806.13">51806.13</option>
-                                <option value="51806.14">51806.14</option>
-                                <option value="51806.15">51806.15</option>
-                                <option value="51806.16">51806.16</option>
-                            </select>
+        <!-- ===================================================================== -->
+        <!-- TAB 3: SETTING & DATABASE TARGET KERJA WO (BEBAS AKSES TANPA PIN)     -->
+        <!-- ===================================================================== -->
+        <section id="tab-setting-content" class="hidden">
+            <div class="space-y-6">
+                
+                <!-- Baris Atas: Integrasi & Keamanan PIN -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Bagian 1: Pengaturan Integrasi System -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6">
+                        <div class="border-b border-slate-100 pb-4 mb-5">
+                            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                <i class="bi bi-sliders text-cyan-600 text-lg"></i>
+                                Pengaturan Integrasi System
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-1">Hubungkan aplikasi dengan Google Apps Script Web App Anda.</p>
                         </div>
-                        <!-- IDPEL -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">IDPEL <span class="text-red-500">*</span></label>
-                            <input type="text" id="idpel" required placeholder="Masukkan IDPEL..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <!-- Nama Pelanggan -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">NAMA PELANGGAN <span class="text-red-500">*</span></label>
-                            <input type="text" id="nama_pelanggan" required placeholder="Nama lengkap pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                        </div>
-                        <!-- Alamat Pelanggan -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">ALAMAT PELANGGAN <span class="text-red-500">*</span></label>
-                            <input type="text" id="alamat_pelanggan" required placeholder="Alamat lokasi pelanggan..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <!-- Tarif (Lengkap) -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">TARIF <span class="text-red-500">*</span></label>
-                            <select id="tarif" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                                <option value="">-- Pilih Tarif --</option>
-                                <option value="R1">R1</option>
-                                <option value="R1M">R1M</option>
-                                <option value="R1T">R1T</option>
-                                <option value="R2">R2</option>
-                                <option value="R3">R3</option>
-                                <option value="B1">B1</option>
-                                <option value="B2">B2</option>
-                                <option value="B3">B3</option>
-                                <option value="I1">I1</option>
-                                <option value="I2">I2</option>
-                                <option value="I3">I3</option>
-                                <option value="P1">P1</option>
-                                <option value="P2">P2</option>
-                                <option value="P3">P3</option>
-                            </select>
-                        </div>
-                        <!-- Daya (Lengkap) -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">DAYA <span class="text-red-500">*</span></label>
-                            <select id="daya" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                                <option value="">-- Pilih Daya --</option>
-                                <option value="450 VA">450 VA</option>
-                                <option value="900 VA">900 VA</option>
-                                <option value="1300 VA">1300 VA</option>
-                                <option value="2200 VA">2200 VA</option>
-                                <option value="3500 VA">3500 VA</option>
-                                <option value="4400 VA">4400 VA</option>
-                                <option value="5500 VA">5500 VA</option>
-                                <option value="6600 VA">6600 VA</option>
-                                <option value="10600 VA">10600 VA</option>
-                                <option value="13200 VA">13200 VA</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Keterangan (Tiga Opsi Sesuai Keinginan) -->
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">KETERANGAN <span class="text-red-500">*</span></label>
-                        <select id="keterangan" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                            <option value="RATTING PLN MOBILE">RATTING PLN MOBILE</option>
-                            <option value="TRANSAKSI PLN MOBILE">TRANSAKSI PLN MOBILE</option>
-                            <option value="SOSIALISASI PLN MOBILE">SOSIALISASI PLN MOBILE</option>
-                        </select>
-                    </div>
-
-                    <!-- Upload Foto dengan Pratinjau -->
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">FOTO BUKTI LAPANGAN <span class="text-red-500">*</span></label>
-                        <div class="mt-1 border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-pln-lightBlue transition bg-slate-50 relative group cursor-pointer">
-                            <input type="file" id="foto_input" accept="image/*" capture="environment" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="previewImage(event)">
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Google Web App Script URL</label>
+                                <input type="url" id="script-url-input" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-cyan-500 focus:bg-white transition outline-none">
+                                <p class="text-[11px] text-slate-400 mt-1.5"><i class="bi bi-info-circle"></i> Folder Google Drive sudah tertanam otomatis di backend script.</p>
+                            </div>
                             
-                            <div id="upload-placeholder" class="space-y-2">
-                                <div class="w-12 h-12 mx-auto rounded-full bg-pln-lightBlue/10 flex items-center justify-center text-pln-lightBlue text-xl group-hover:scale-110 transition">
-                                    <i class="fa-solid fa-camera"></i>
+                            <button onclick="saveSettings()" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-sm flex items-center justify-center space-x-2">
+                                <i class="bi bi-check2-circle text-sm"></i>
+                                <span>Simpan Pengaturan</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bagian 2: Keamanan & Ganti PIN Admin -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6">
+                        <div class="border-b border-slate-100 pb-4 mb-5">
+                            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                <i class="bi bi-shield-lock-fill text-amber-600 text-lg"></i>
+                                Keamanan & Ganti PIN Admin
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-1">Wajib memasukkan PIN Lama (Default: 1234) untuk mengubah PIN baru.</p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1.5">PIN Admin Lama</label>
+                                    <input type="password" id="old-pin-input" maxlength="8" placeholder="PIN saat ini" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-amber-500 focus:bg-white transition outline-none">
                                 </div>
-                                <p class="text-xs text-slate-700 font-semibold">Ketuk untuk Mengambil Foto atau Unggah Berkas</p>
-                                <p class="text-[10px] text-slate-400">Format yang didukung: JPG, PNG, WEBP</p>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1.5">PIN Admin Baru</label>
+                                    <input type="password" id="new-pin-input" maxlength="8" placeholder="Min. 4 digit baru" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-amber-500 focus:bg-white transition outline-none">
+                                </div>
                             </div>
                             
-                            <div id="preview-container" class="hidden relative">
-                                <img id="img-preview" class="max-h-48 mx-auto rounded-xl shadow-md object-contain">
-                                <p class="text-xs text-emerald-600 mt-2 font-semibold flex items-center justify-center">
-                                    <i class="fa-solid fa-circle-check mr-1.5"></i> Foto bukti lapangan siap dikirim
-                                </p>
-                            </div>
+                            <button onclick="changeAdminPin()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-sm flex items-center justify-center space-x-2">
+                                <i class="bi bi-key-fill text-sm"></i>
+                                <span>Perbarui PIN Admin</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bagian 3: Manajemen Database Target Kerja WO (Master Data 6 Kolom) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6">
+                    <div class="border-b border-slate-100 pb-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                <i class="bi bi-hdd-stack-fill text-indigo-600 text-lg"></i>
+                                Manajemen Database Target Kerja WO (Master Data)
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-1">Struktur 6 kolom Excel: <strong>Petugas | IDPEL | Nama | Alamat | Tarif | Daya</strong> (Petugas: <code class="text-indigo-700 font-bold">51806.01</code> - <code class="text-indigo-700 font-bold">51806.16</code>).</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="downloadExcelTemplate()" class="bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+                                <i class="bi bi-file-earmark-arrow-down-fill"></i>
+                                <span>Download Template Excel (.xlsx)</span>
+                            </button>
+                            <button onclick="resetDefaultDatabase()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                                <span>Muat Contoh Data</span>
+                            </button>
+                            <button onclick="clearTargetDatabase()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+                                <i class="bi bi-trash"></i>
+                                <span>Hapus Semua Target</span>
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Tombol Aksi Form -->
-                    <div class="pt-4 flex items-center justify-end space-x-3">
-                        <button type="button" onclick="switchTab('tab-history')" class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-100 transition">Batal</button>
-                        <button type="submit" id="btn-submit" class="px-6 py-2.5 rounded-xl bg-pln-blue hover:bg-pln-lightBlue text-white text-sm font-semibold shadow transition flex items-center">
-                            <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Simpan & Kirim
-                        </button>
+                    <!-- Form Tambah Satuan & Import Excel (.xlsx) / Copy-Paste -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Tambah 1 Data Manual (6 Kolom) -->
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                <i class="bi bi-plus-circle-fill text-indigo-600"></i> Tambah Target Satuan
+                            </h3>
+                            <form onsubmit="addSingleTarget(event)" class="space-y-3">
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">Petugas (51806.01 - 16)</label>
+                                        <select id="db-add-petugas" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                                            <!-- Diisi otomatis 51806.01 - 51806.16 -->
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">IDPEL (12 Digit)</label>
+                                        <input type="text" id="db-add-idpel" required placeholder="Contoh: 518060501686" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                    <div class="sm:col-span-1">
+                                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">Nama</label>
+                                        <input type="text" id="db-add-nama" required placeholder="Nama Pelanggan" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">Tarif</label>
+                                        <input type="text" id="db-add-tarif" required placeholder="Contoh: R1" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-slate-600 mb-1">Daya</label>
+                                        <input type="text" id="db-add-daya" required placeholder="Contoh: 900" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-1">Alamat</label>
+                                    <input type="text" id="db-add-alamat" required placeholder="Alamat lengkap pelanggan" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-sm">
+                                    + Tambahkan ke Database Target
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Import File Excel (.xlsx) & Copy-Paste Massal -->
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 flex flex-col justify-between space-y-3">
+                            <div>
+                                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <i class="bi bi-file-earmark-excel-fill text-emerald-600"></i> Import Massal (.XLSX / .CSV / Copy-Paste)
+                                </h3>
+                                
+                                <!-- Upload File .xlsx -->
+                                <div class="bg-white p-3 rounded-xl border border-emerald-200/80 mb-3">
+                                    <label class="block text-[11px] font-bold text-emerald-800 mb-1.5">
+                                        1. Upload File Excel (.xlsx / .xls / .csv)
+                                    </label>
+                                    <div class="flex flex-col sm:flex-row gap-2">
+                                        <input type="file" id="xlsx-file-input" accept=".xlsx,.xls,.csv" class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-200 rounded-xl p-1">
+                                        <button type="button" onclick="importExcelFile()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition shrink-0 flex items-center justify-center gap-1.5 shadow-sm">
+                                            <i class="bi bi-file-earmark-spreadsheet"></i>
+                                            <span>Import File Excel</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Copy-Paste dari Excel -->
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                        2. Atau Copy-Paste Baris Excel (Urutan 6 Kolom):
+                                    </label>
+                                    <p class="text-[10px] text-slate-500 mb-1.5">
+                                        <code class="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-slate-700 font-semibold">Petugas | IDPEL | Nama | Alamat | Tarif | Daya</code>
+                                    </p>
+                                    <textarea id="bulk-paste-input" rows="3" placeholder="51806.04	518060998877	Ahmad Fauzi	Blimbing Paciran	R1	1300
+51806.05	518060776655	Dewi Lestari	Kandangsemangkon	R1M	900" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                                </div>
+                            </div>
+                            <button type="button" onclick="importBulkTargets()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-sm flex items-center justify-center gap-1.5">
+                                <i class="bi bi-clipboard-plus"></i>
+                                <span>Proses Teks Copy-Paste ke Database</span>
+                            </button>
+                        </div>
                     </div>
-                </form>
+
+                    <!-- Tabel Daftar Database Target (6 Kolom + Status + Aksi) -->
+                    <div>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <h3 class="text-xs font-bold text-slate-700">Daftar Target Database Aktif (<span id="db-count-label">0</span> Entri)</h3>
+                            <input type="text" id="db-search-input" onkeyup="renderDatabaseTable()" placeholder="Filter database petugas / IDPEL / nama..." class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64">
+                        </div>
+                        <div class="overflow-x-auto table-responsive border border-slate-200/80 rounded-xl max-h-80">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="sticky top-0 bg-cyan-500 text-white z-10">
+                                    <tr class="border-b border-cyan-600 text-[11px] font-bold uppercase tracking-wider">
+                                        <th class="p-3">Petugas</th>
+                                        <th class="p-3">IDPEL</th>
+                                        <th class="p-3">Nama</th>
+                                        <th class="p-3">Alamat</th>
+                                        <th class="p-3">Tarif</th>
+                                        <th class="p-3">Daya</th>
+                                        <th class="p-3 text-center">Status Kerja</th>
+                                        <th class="p-3 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="database-table-body" class="divide-y divide-slate-100 text-xs text-slate-700">
+                                    <!-- Diisi otomatis via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </section>
 
-        <!-- TAB 3: SETTING URL GOOGLE APPS SCRIPT -->
-        <section id="tab-settings" class="hidden space-y-6">
-            <div class="max-w-xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
-                <div class="border-b border-slate-200 pb-4 mb-6">
-                    <h2 class="text-xl font-bold text-slate-800 flex items-center">
-                        <i class="fa-solid fa-gear text-pln-blue mr-2"></i> Pengaturan Koneksi Spreadsheet
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-1">Masukkan URL Web App Google Apps Script Anda di bawah ini agar data dan foto otomatis tersinkronisasi.</p>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">URL Web App Apps Script:</label>
-                        <input type="text" id="setting-script-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-pln-lightBlue outline-none">
-                    </div>
-                    <button onclick="saveSettings()" class="w-full bg-pln-blue hover:bg-pln-lightBlue text-white py-2.5 rounded-xl font-semibold text-sm shadow transition flex items-center justify-center">
-                        <i class="fa-solid fa-floppy-disk mr-2"></i> Simpan Pengaturan URL
-                    </button>
-                </div>
-            </div>
-        </section>
     </main>
 
-    <!-- Toast Notification Container -->
-    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+    <!-- ===================================================================== -->
+    <!-- MODALS: NOTIFIKASI, PREVIEW FOTO, & VERIFIKASI PIN ADMIN              -->
+    <!-- ===================================================================== -->
 
-    <!-- Application Script -->
+    <!-- Modal Custom Message Box -->
+    <div id="custom-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center">
+            <div id="modal-icon" class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="bi bi-check-circle-fill"></i>
+            </div>
+            <h3 id="modal-title" class="text-base font-bold text-slate-900">Berhasil!</h3>
+            <p id="modal-msg" class="text-xs text-slate-500 mt-2 leading-relaxed">Data berhasil diproses.</p>
+            <button onclick="closeModal()" class="mt-5 w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl transition">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Hapus (Pengganti confirm()) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <h3 id="confirm-title" class="text-base font-bold text-slate-900">Konfirmasi Tindakan</h3>
+            <p id="confirm-msg" class="text-xs text-slate-500 mt-2 leading-relaxed">Apakah Anda yakin ingin melanjutkan?</p>
+            <div class="flex space-x-2 mt-5">
+                <button onclick="closeConfirmModal()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl transition">
+                    Batal
+                </button>
+                <button id="confirm-yes-btn" class="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-sm">
+                    Ya, Lanjutkan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Preview Foto Bukti di Tabel Riwayat -->
+    <div id="photo-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4" onclick="closePhotoModal()">
+        <div class="bg-white rounded-2xl p-4 max-w-lg w-full shadow-2xl border border-slate-200 text-center" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                <span id="photo-modal-title" class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <i class="bi bi-image text-emerald-600"></i> WO_IDPEL.jpg
+                </span>
+                <button onclick="closePhotoModal()" class="text-slate-400 hover:text-slate-700 text-lg leading-none">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <img id="photo-modal-img" src="" alt="Bukti Foto" class="max-h-[65vh] mx-auto rounded-xl object-contain border border-slate-100">
+        </div>
+    </div>
+
+    <!-- Modal Password PIN Admin -->
+    <div id="pin-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center">
+            <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="bi bi-person-fill-lock"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-900">Akses Admin Dilindungi</h3>
+            <p class="text-xs text-slate-500 mt-1 mb-4">Masukkan PIN Admin untuk melihat data riwayat & melakukan aksi khusus.</p>
+            
+            <form onsubmit="verifyPin(event)">
+                <input type="password" id="pin-input" maxlength="8" placeholder="PIN (Default: 1234)" class="w-full text-center tracking-widest text-base font-bold px-4 py-2.5 bg-slate-50 border-2 border-cyan-500 rounded-xl mb-3 focus:bg-white outline-none">
+                <p id="pin-error" class="text-xs text-rose-500 font-semibold mb-3 hidden">PIN Salah! Silakan coba lagi.</p>
+                <div class="flex space-x-2">
+                    <button type="button" onclick="closePinModal()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl transition">
+                        Batal
+                    </button>
+                    <button type="submit" class="w-1/2 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs py-2.5 rounded-xl transition shadow-md">
+                        Masuk Admin
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- JAVASCRIPT LOGIC                                                      -->
+    <!-- ===================================================================== -->
     <script>
-        let surveyLogs = JSON.parse(localStorage.getItem('wo_pln_logs')) || [];
-        let scriptUrl = localStorage.getItem('wo_pln_script_url') || "";
+        // Daftar Tetap 16 User Petugas: 51806.01 s/d 51806.16
+        const PETUGAS_LIST = Array.from({ length: 16 }, (_, i) => `51806.${String(i + 1).padStart(2, '0')}`);
 
+        // Data Awal (Pre-populated Database Target WO - Format 6 Kolom: Petugas, IDPEL, Nama, Alamat, Tarif, Daya)
+        const DEFAULT_TARGET_DB = [
+            { petugas: "51806.01", idpel: "518060112233", nama: "Budi Santoso", alamat: "Sendangharjo, Brondong", tarif: "R1", daya: "900", status: "Belum Dikerjakan" },
+            { petugas: "51806.02", idpel: "518060445566", nama: "Siti Aminah", alamat: "Kranji, Paciran", tarif: "R1M", daya: "1300", status: "Belum Dikerjakan" },
+            { petugas: "51806.03", idpel: "518060501686", nama: "Cak Mun", alamat: "Brondong, Lamongan", tarif: "B3", daya: "5500", status: "Belum Dikerjakan" },
+            { petugas: "51806.03", idpel: "518060304982", nama: "Ari", alamat: "Paciran, Lamongan", tarif: "I3", daya: "4400", status: "Belum Dikerjakan" }
+        ];
+
+        // Contoh Riwayat Awal agar tabel Riwayat siap diuji
+        const DEFAULT_HISTORY_LOGS = [
+            {
+                id: 1731312000001,
+                timestamp: "13/11/2026, 09.15.20",
+                petugas: "51806.01",
+                idpel: "518060991122",
+                nama: "H. Abdul Rahman",
+                alamat: "Sedayulawas, Brondong",
+                tarifDaya: "R1 / 1300 VA",
+                keterangan: "RATTING PLN MOBILE",
+                fileName: "WO_518060991122.jpg",
+                photoData: "https://placehold.co/600x400/006687/ffffff?text=WO_518060991122.jpg",
+                status: "Synced"
+            }
+        ];
+
+        let targetDatabase = [];
+        let historyLogs = [];
+        let currentPhotoBase64 = "";
+        let isAdminLoggedIn = false;
+        let targetTabAfterAuth = null;
+        let pendingAdminAction = null;
+
+        // Helper menggabungkan Tarif & Daya untuk tampilan Input & Riwayat
+        function formatTarifDaya(tarif, daya) {
+            const t = String(tarif || "-").trim();
+            const d = String(daya || "-").trim();
+            if (d === "-" || d === "") return t;
+            return d.toUpperCase().includes("VA") ? `${t} / ${d}` : `${t} / ${d} VA`;
+        }
+
+        // Inisialisasi Aplikasi saat dimuat
         window.onload = function() {
-            const settingInput = document.getElementById('setting-script-url');
-            if (settingInput) settingInput.value = scriptUrl;
-            renderHistoryTable();
-            populateFilters();
+            // Load URL Script jika ada
+            const savedUrl = localStorage.getItem('wo_pln_script_url');
+            if (savedUrl) {
+                document.getElementById('script-url-input').value = savedUrl;
+            }
+
+            // Isi dropdown tambah manual petugas (51806.01 - 51806.16)
+            const dbAddPetugas = document.getElementById('db-add-petugas');
+            dbAddPetugas.innerHTML = PETUGAS_LIST.map(p => `<option value="${p}">${p}</option>`).join('');
+
+            // Load Database Target dari localStorage (migrasi otomatis jika format lama)
+            const savedDb = localStorage.getItem('wo_pln_target_db_v2');
+            if (savedDb) {
+                try {
+                    targetDatabase = JSON.parse(savedDb);
+                } catch (e) {
+                    targetDatabase = [...DEFAULT_TARGET_DB];
+                }
+            } else {
+                targetDatabase = [...DEFAULT_TARGET_DB];
+                saveTargetDbToStorage();
+            }
+
+            // Load Riwayat Pengerjaan dari localStorage
+            const savedHistory = localStorage.getItem('wo_pln_history_logs_v2');
+            if (savedHistory) {
+                try {
+                    historyLogs = JSON.parse(savedHistory);
+                } catch (e) {
+                    historyLogs = [...DEFAULT_HISTORY_LOGS];
+                }
+            } else {
+                historyLogs = [...DEFAULT_HISTORY_LOGS];
+                saveHistoryToStorage();
+            }
+
+            refreshAllUI();
         };
 
-        function switchTab(tabId) {
-            const tabHistory = document.getElementById('tab-history');
-            const tabForm = document.getElementById('tab-form');
-            const tabSettings = document.getElementById('tab-settings');
+        function saveTargetDbToStorage() {
+            localStorage.setItem('wo_pln_target_db_v2', JSON.stringify(targetDatabase));
+        }
 
-            if (tabHistory) tabHistory.classList.add('hidden');
-            if (tabForm) tabForm.classList.add('hidden');
-            if (tabSettings) tabSettings.classList.add('hidden');
-            
-            const btnHistory = document.getElementById('btn-tab-history');
-            const btnForm = document.getElementById('btn-tab-form');
-            const btnSettings = document.getElementById('btn-tab-settings');
+        function saveHistoryToStorage() {
+            localStorage.setItem('wo_pln_history_logs_v2', JSON.stringify(historyLogs));
+        }
 
-            if (btnHistory) btnHistory.className = "px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center";
-            if (btnForm) btnForm.className = "px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center";
-            if (btnSettings) btnSettings.className = "px-3.5 py-2 rounded-xl text-sm font-semibold hover:bg-pln-lightBlue/50 text-white transition flex items-center";
+        function refreshAllUI() {
+            updateStatsBar();
+            populatePetugasDropdowns();
+            renderDatabaseTable();
+            renderHistoryTable();
+        }
 
-            const targetTab = document.getElementById(tabId);
-            if (targetTab) targetTab.classList.remove('hidden');
+        function updateStatsBar() {
+            const totalDb = targetDatabase.length;
+            const totalSelesai = targetDatabase.filter(item => item.status === 'Sudah Dikerjakan').length;
+            document.getElementById('stat-total-db').textContent = totalDb + ' Target';
+            document.getElementById('stat-total-selesai').textContent = totalSelesai + ' Data';
+        }
 
-            if (tabId === 'tab-history') {
-                if (btnHistory) btnHistory.className = "px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center";
-                renderHistoryTable();
-            } else if (tabId === 'tab-form') {
-                if (btnForm) btnForm.className = "px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center";
-            } else if (tabId === 'tab-settings') {
-                if (btnSettings) btnSettings.className = "px-3.5 py-2 rounded-xl text-sm font-semibold bg-pln-lightBlue text-white shadow transition flex items-center";
+        // =====================================================================
+        // NAVIGASI TAB & AUTENTIKASI PIN ADMIN
+        // =====================================================================
+        function getAdminPin() {
+            return localStorage.getItem('wo_admin_pin') || "1234";
+        }
+
+        function switchTab(tabName) {
+            if (tabName === 'riwayat' && !isAdminLoggedIn) {
+                targetTabAfterAuth = tabName;
+                openPinModal();
+                return;
+            }
+
+            document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.pln-btn-nav').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(`tab-${tabName}-content`).classList.remove('hidden');
+            document.getElementById(`nav-${tabName}`).classList.add('active');
+        }
+
+        function openPinModal() {
+            document.getElementById('pin-input').value = '';
+            document.getElementById('pin-error').classList.add('hidden');
+            document.getElementById('pin-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('pin-input').focus(), 100);
+        }
+
+        function closePinModal() {
+            document.getElementById('pin-modal').classList.add('hidden');
+            targetTabAfterAuth = null;
+            pendingAdminAction = null;
+        }
+
+        function verifyPin(e) {
+            e.preventDefault();
+            const inputPin = document.getElementById('pin-input').value;
+
+            if (inputPin === getAdminPin()) {
+                isAdminLoggedIn = true;
+                closePinModal();
+                updateAdminStateUI();
+
+                if (targetTabAfterAuth) {
+                    const tab = targetTabAfterAuth;
+                    targetTabAfterAuth = null;
+                    switchTab(tab);
+                } else if (pendingAdminAction) {
+                    const action = pendingAdminAction;
+                    pendingAdminAction = null;
+                    action();
+                }
+            } else {
+                document.getElementById('pin-error').classList.remove('hidden');
             }
         }
 
-        function saveSettings() {
-            const url = document.getElementById('setting-script-url').value.trim();
-            localStorage.setItem('wo_pln_script_url', url);
-            scriptUrl = url;
-            showToast('Pengaturan URL berhasil disimpan!', 'success');
-            switchTab('tab-history');
+        function updateAdminStateUI() {
+            if (isAdminLoggedIn) {
+                document.getElementById('lock-icon-riwayat').classList.add('hidden');
+                document.getElementById('btn-logout-admin').classList.remove('hidden');
+                document.getElementById('admin-badge').classList.remove('hidden');
+            } else {
+                document.getElementById('lock-icon-riwayat').classList.remove('hidden');
+                document.getElementById('btn-logout-admin').classList.add('hidden');
+                document.getElementById('admin-badge').classList.add('hidden');
+            }
         }
 
-        function previewImage(event) {
-            const file = event.target.files[0];
-            if (file) {
+        function logoutAdmin() {
+            isAdminLoggedIn = false;
+            updateAdminStateUI();
+            switchTab('input');
+            showModal("Logout Admin", "Anda telah keluar dari sesi Admin. Tab Riwayat dikunci kembali.", "info");
+        }
+
+        function requireAdminAuth(actionCallback) {
+            if (isAdminLoggedIn) {
+                actionCallback();
+            } else {
+                pendingAdminAction = actionCallback;
+                openPinModal();
+            }
+        }
+
+        // =====================================================================
+        // LOGIKA TAB INPUT (51806.01 - 51806.16 -> PILIH IDPEL -> AUTO-FILL)
+        // =====================================================================
+        function populatePetugasDropdowns() {
+            // Gabungkan daftar tetap 51806.01 - 51806.16 dengan user tambahan jika ada di database
+            const extraPetugas = targetDatabase.map(d => d.petugas).filter(p => !PETUGAS_LIST.includes(p));
+            const allPetugas = [...PETUGAS_LIST, ...new Set(extraPetugas)];
+            
+            // 1. Dropdown di Tab Input (Seluruh 51806.01 - 51806.16 tampil)
+            const inputPetugasSelect = document.getElementById('input-petugas');
+            const currentSelectedInput = inputPetugasSelect.value;
+            inputPetugasSelect.innerHTML = '<option value="">-- Pilih User Petugas --</option>';
+            allPetugas.forEach(p => {
+                const countTotal = targetDatabase.filter(d => d.petugas === p).length;
+                const countBelum = targetDatabase.filter(d => d.petugas === p && d.status !== 'Sudah Dikerjakan').length;
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = countTotal > 0 
+                    ? `${p} (Sisa ${countBelum}/${countTotal} Target)` 
+                    : `${p} (0 Target)`;
+                inputPetugasSelect.appendChild(opt);
+            });
+            if (allPetugas.includes(currentSelectedInput)) {
+                inputPetugasSelect.value = currentSelectedInput;
+                onPetugasChange(false);
+            }
+
+            // 2. Dropdown Filter di Tab Riwayat (51806.01 - 51806.16)
+            const filterPetugasSelect = document.getElementById('filter-petugas');
+            const currentFilter = filterPetugasSelect.value;
+            filterPetugasSelect.innerHTML = '<option value="">-- Semua User Petugas --</option>';
+            allPetugas.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p;
+                opt.textContent = p;
+                filterPetugasSelect.appendChild(opt);
+            });
+            filterPetugasSelect.value = currentFilter;
+        }
+
+        function onPetugasChange(resetFields = true) {
+            const selectedPetugas = document.getElementById('input-petugas').value;
+            const idpelSelect = document.getElementById('input-idpel');
+            const progressBadge = document.getElementById('petugas-progress-badge');
+
+            if (resetFields) {
+                clearAutoFillFields();
+            }
+
+            if (!selectedPetugas) {
+                idpelSelect.innerHTML = '<option value="">-- Pilih User Petugas Dahulu --</option>';
+                idpelSelect.disabled = true;
+                progressBadge.classList.add('hidden');
+                return;
+            }
+
+            const petugasTargets = targetDatabase.filter(item => item.petugas === selectedPetugas);
+            const sisaTarget = petugasTargets.filter(item => item.status !== 'Sudah Dikerjakan').length;
+
+            progressBadge.textContent = `Sisa Target: ${sisaTarget} dari ${petugasTargets.length}`;
+            progressBadge.classList.remove('hidden');
+
+            idpelSelect.disabled = false;
+            if (petugasTargets.length === 0) {
+                idpelSelect.innerHTML = '<option value="">-- Belum Ada Target IDPEL --</option>';
+                return;
+            }
+
+            idpelSelect.innerHTML = '<option value="">-- Pilih IDPEL --</option>';
+            petugasTargets.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.idpel;
+                const statusTag = item.status === 'Sudah Dikerjakan' ? '✅ [SUDAH]' : '⏳ [BELUM]';
+                opt.textContent = `${item.idpel} - ${item.nama} ${statusTag}`;
+                idpelSelect.appendChild(opt);
+            });
+        }
+
+        function onIdpelChange() {
+            const selectedPetugas = document.getElementById('input-petugas').value;
+            const selectedIdpel = document.getElementById('input-idpel').value;
+            const statusIndicator = document.getElementById('status-target-indicator');
+
+            if (!selectedIdpel) {
+                clearAutoFillFields();
+                return;
+            }
+
+            const record = targetDatabase.find(item => item.petugas === selectedPetugas && item.idpel === selectedIdpel);
+            if (record) {
+                document.getElementById('input-nama').value = record.nama;
+                document.getElementById('input-alamat').value = record.alamat;
+                document.getElementById('input-tarif-daya').value = formatTarifDaya(record.tarif, record.daya);
+                document.getElementById('auto-filename-hint').innerHTML = `Nama file otomatis: <span class="font-mono font-bold text-cyan-700">WO_${record.idpel}.jpg</span>`;
+
+                statusIndicator.classList.remove('hidden');
+                if (record.status === 'Sudah Dikerjakan') {
+                    statusIndicator.textContent = "Sudah Dikerjakan (Input Ulang/Update)";
+                    statusIndicator.className = "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+                } else {
+                    statusIndicator.textContent = "Belum Dikerjakan";
+                    statusIndicator.className = "text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700";
+                }
+            }
+        }
+
+        function clearAutoFillFields() {
+            document.getElementById('input-nama').value = '';
+            document.getElementById('input-alamat').value = '';
+            document.getElementById('input-tarif-daya').value = '';
+            document.getElementById('status-target-indicator').classList.add('hidden');
+            document.getElementById('auto-filename-hint').innerHTML = `Nama file otomatis: <span class="font-mono font-semibold text-cyan-700">WO_&lt;IDPEL&gt;.jpg</span>`;
+        }
+
+        function handlePhotoPreview(input) {
+            if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    document.getElementById('img-preview').src = e.target.result;
-                    document.getElementById('upload-placeholder').classList.add('hidden');
-                    document.getElementById('preview-container').classList.remove('hidden');
+                    currentPhotoBase64 = e.target.result;
+                    const idpelVal = document.getElementById('input-idpel').value || 'IDPEL';
+                    document.getElementById('photo-preview-img').src = currentPhotoBase64;
+                    document.getElementById('photo-filename-badge').innerHTML = `<i class="bi bi-file-earmark-image"></i> WO_${idpelVal}.jpg`;
+                    document.getElementById('photo-placeholder').classList.add('hidden');
+                    document.getElementById('photo-preview-box').classList.remove('hidden');
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(input.files[0]);
             }
         }
 
-        async function handleFormSubmit(e) {
+        function handleFormSubmit(e) {
             e.preventDefault();
-            showToast('Memproses data & konversi foto...', 'info');
+            const petugas = document.getElementById('input-petugas').value;
+            const idpel = document.getElementById('input-idpel').value;
+            const nama = document.getElementById('input-nama').value;
+            const alamat = document.getElementById('input-alamat').value;
+            const tarifDaya = document.getElementById('input-tarif-daya').value;
+            const keterangan = document.getElementById('input-keterangan').value;
+
+            if (!petugas || !idpel) {
+                showModal("Data Belum Lengkap", "Silakan pilih User Petugas dan IDPEL terlebih dahulu.", "warning");
+                return;
+            }
+
+            if (!currentPhotoBase64) {
+                showModal("Foto Wajib Diisi", "Silakan ambil atau unggah foto bukti lapangan terlebih dahulu.", "warning");
+                return;
+            }
 
             const submitBtn = document.getElementById('btn-submit');
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Mengirim...';
+            submitBtn.innerHTML = '<i class="bi bi-arrow-repeat animate-spin text-base"></i><span>Menyimpan & Mengirim...</span>';
 
-            const formData = {
-                timestamp: new Date().toLocaleString('id-ID'),
-                user_petugas: document.getElementById('user_petugas').value,
-                idpel: document.getElementById('idpel').value,
-                nama_pelanggan: document.getElementById('nama_pelanggan').value,
-                alamat_pelanggan: document.getElementById('alamat_pelanggan').value,
-                tarif: document.getElementById('tarif').value,
-                daya: document.getElementById('daya').value,
-                keterangan: document.getElementById('keterangan').value,
-                foto: ''
-            };
+            const now = new Date();
+            const timestampStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ', ' + 
+                                 now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/:/g, '.');
+            const fileName = `WO_${idpel}.jpg`;
 
-            const fotoInput = document.getElementById('foto_input');
-            const fotoFile = fotoInput && fotoInput.files[0] ? fotoInput.files[0] : null;
-
-            const kirimDataFinal = async (base64Img) => {
-                formData.foto = base64Img || '';
-                
-                surveyLogs.unshift(formData);
-                localStorage.setItem('wo_pln_logs', JSON.stringify(surveyLogs));
-
-                if (scriptUrl) {
-                    try {
-                        await fetch(scriptUrl, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(formData)
-                        });
-                        formData.synced = true;
-                        localStorage.setItem('wo_pln_logs', JSON.stringify(surveyLogs));
-                        showToast('Data & Foto sukses terkirim ke Sheets & Drive!', 'success');
-                    } catch (err) {
-                        showToast('Tersimpan lokal (Offline Mode)', 'warning');
-                    }
-                } else {
-                    showToast('Tersimpan lokal (Atur URL Spreadsheet di menu Setting)', 'warning');
-                }
-
-                document.getElementById('survey-form').reset();
-                document.getElementById('upload-placeholder').classList.remove('hidden');
-                document.getElementById('preview-container').classList.add('hidden');
-                
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-2"></i> Simpan & Kirim';
-                
-                populateFilters();
-                switchTab('tab-history');
-            };
-
-            if (fotoFile) {
-                const reader = new FileReader();
-                reader.onload = async function(uploadEvent) {
-                    await kirimDataFinal(uploadEvent.target.result);
-                };
-                reader.readAsDataURL(fotoFile);
-            } else {
-                await kirimDataFinal('');
+            // 1. Update Status di Database Target menjadi 'Sudah Dikerjakan'
+            const targetIdx = targetDatabase.findIndex(item => item.petugas === petugas && item.idpel === idpel);
+            if (targetIdx !== -1) {
+                targetDatabase[targetIdx].status = 'Sudah Dikerjakan';
+                saveTargetDbToStorage();
             }
+
+            // 2. Simpan ke Riwayat Lokal
+            const newEntry = {
+                id: Date.now(),
+                timestamp: timestampStr,
+                petugas: petugas,
+                idpel: idpel,
+                nama: nama,
+                alamat: alamat,
+                tarifDaya: tarifDaya,
+                keterangan: keterangan,
+                fileName: fileName,
+                photoData: currentPhotoBase64,
+                status: 'Synced'
+            };
+            historyLogs.unshift(newEntry);
+            saveHistoryToStorage();
+
+            // 3. Kirim ke Google Apps Script jika URL tersedia
+            const scriptUrl = localStorage.getItem('wo_pln_script_url');
+            if (scriptUrl) {
+                const payload = {
+                    timestamp: timestampStr,
+                    user_petugas: petugas,
+                    idpel: idpel,
+                    nama_pelanggan: nama,
+                    alamat_pelanggan: alamat,
+                    tarif_daya: tarifDaya,
+                    keterangan: keterangan,
+                    fileName: fileName,
+                    foto: currentPhotoBase64
+                };
+
+                fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(err => console.warn("Offline/CORS fallback:", err));
+            }
+
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-send-check-fill text-base"></i><span>SIMPAN & KIRIM LAPORAN</span>';
+
+                // Reset form tapi pertahankan pilihan Petugas agar cepat lanjut ke IDPEL berikutnya
+                document.getElementById('foto-file').value = '';
+                currentPhotoBase64 = '';
+                document.getElementById('photo-placeholder').classList.remove('hidden');
+                document.getElementById('photo-preview-box').classList.add('hidden');
+                clearAutoFillFields();
+                refreshAllUI();
+                onPetugasChange(true);
+
+                showModal("Laporan Tersimpan!", `Data IDPEL ${idpel} (${nama}) berhasil disimpan dengan foto ${fileName}. Status target kini ditandai SUDAH.`);
+            }, 400);
         }
 
+        // =====================================================================
+        // LOGIKA TAB RIWAYAT (TABEL, FILTER, EXPORT XLSX, HAPUS LOG)
+        // =====================================================================
         function renderHistoryTable() {
             const tbody = document.getElementById('history-table-body');
-            const searchQuery = document.getElementById('search-input').value.toLowerCase();
-            const filterPetugas = document.getElementById('filter-petugas').value;
-            const filterKet = document.getElementById('filter-keterangan').value;
+            const searchVal = document.getElementById('search-input').value.toLowerCase();
+            const petugasFilter = document.getElementById('filter-petugas').value;
+            const ketFilter = document.getElementById('filter-keterangan').value;
 
-            tbody.innerHTML = '';
-            let filtered = surveyLogs.filter(item => {
-                const matchSearch = (item.idpel && item.idpel.toLowerCase().includes(searchQuery)) || 
-                                    (item.nama_pelanggan && item.nama_pelanggan.toLowerCase().includes(searchQuery));
-                const matchPetugas = filterPetugas ? item.user_petugas === filterPetugas : true;
-                const matchKet = filterKet ? item.keterangan === filterKet : true;
-                return matchSearch && matchPetugas && matchKet;
+            const filtered = historyLogs.filter(row => {
+                const matchText = row.idpel.toLowerCase().includes(searchVal) || 
+                                  row.nama.toLowerCase().includes(searchVal) || 
+                                  row.alamat.toLowerCase().includes(searchVal);
+                const matchPetugas = !petugasFilter || row.petugas === petugasFilter;
+                const matchKet = !ketFilter || row.keterangan === ketFilter;
+                return matchText && matchPetugas && matchKet;
             });
 
-            document.getElementById('total-count').innerText = filtered.length;
-
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 font-medium">Belum ada data survei yang tercatat.</td></tr>`;
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="p-8 text-center text-slate-400">
+                            <i class="bi bi-inbox text-3xl block mb-2"></i>
+                            Belum ada data riwayat pengerjaan yang sesuai filter.
+                        </td>
+                    </tr>
+                `;
                 return;
             }
 
-            filtered.forEach((item) => {
-                let fotoBadge = item.foto && item.foto.startsWith('http') ? 
-                    `<a href="${item.foto}" target="_blank" class="text-pln-blue font-semibold underline hover:text-pln-lightBlue"><i class="fa-solid fa-image mr-1"></i> Lihat Foto</a>` : 
-                    (item.foto ? '<span class="text-emerald-600 font-medium">Tersimpan (Base64)</span>' : '-');
-
-                let syncBadge = item.synced ? 
-                    '<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">Synced</span>' : 
-                    '<span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">Local</span>';
-
-                let tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition";
-                tr.innerHTML = `
-                    <td class="p-3.5 text-xs text-slate-500">${item.timestamp}</td>
-                    <td class="p-3.5 font-medium">${item.user_petugas}</td>
-                    <td class="p-3.5 font-semibold text-pln-blue">${item.idpel}</td>
-                    <td class="p-3.5">${item.nama_pelanggan}</td>
-                    <td class="p-3.5 text-xs text-slate-600">${item.alamat_pelanggan}</td>
-                    <td class="p-3.5 text-xs">${item.tarif} / ${item.daya}</td>
-                    <td class="p-3.5 text-xs"><span class="px-2 py-1 bg-slate-100 rounded-lg text-slate-700 font-medium">${item.keterangan}</span></td>
-                    <td class="p-3.5 text-xs">${fotoBadge}</td>
-                    <td class="p-3.5">${syncBadge}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            tbody.innerHTML = filtered.map(row => `
+                <tr class="hover:bg-slate-50/90 transition">
+                    <td class="p-3.5 text-slate-400 whitespace-nowrap">${row.timestamp}</td>
+                    <td class="p-3.5 font-bold text-slate-900 whitespace-nowrap">${row.petugas}</td>
+                    <td class="p-3.5 font-bold text-sky-700 whitespace-nowrap">${row.idpel}</td>
+                    <td class="p-3.5 font-semibold text-slate-800 whitespace-nowrap">${row.nama}</td>
+                    <td class="p-3.5 text-slate-500 max-w-xs truncate" title="${row.alamat}">${row.alamat}</td>
+                    <td class="p-3.5 whitespace-nowrap">${row.tarifDaya}</td>
+                    <td class="p-3.5 whitespace-nowrap">
+                        <span class="bg-slate-100 text-slate-700 font-semibold px-2.5 py-1 rounded-md text-[11px] border border-slate-200/70">${row.keterangan}</span>
+                    </td>
+                    <td class="p-3.5 whitespace-nowrap">
+                        <button onclick="openPhotoModal('${row.id}')" class="inline-flex items-center text-emerald-600 font-semibold hover:underline gap-1.5">
+                            <i class="bi bi-image-fill"></i>
+                            <span>${row.fileName}</span>
+                        </button>
+                    </td>
+                    <td class="p-3.5 text-center whitespace-nowrap">
+                        <span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-full">${row.status}</span>
+                    </td>
+                </tr>
+            `).join('');
         }
 
-        function populateFilters() {
-            const petugasSet = [...new Set(surveyLogs.map(i => i.user_petugas))];
-            const ketSet = [...new Set(surveyLogs.map(i => i.keterangan))];
-
-            const pSelect = document.getElementById('filter-petugas');
-            pSelect.innerHTML = '<option value="">-- Semua User Petugas --</option>';
-            petugasSet.forEach(p => {
-                if(p) pSelect.innerHTML += `<option value="${p}">${p}</option>`;
-            });
-
-            const kSelect = document.getElementById('filter-keterangan');
-            kSelect.innerHTML = '<option value="">-- Semua Status Keterangan --</option>';
-            ketSet.forEach(k => {
-                if(k) kSelect.innerHTML += `<option value="${k}">${k}</option>`;
-            });
-        }
-
-        function clearLogs() {
-            if(confirm('Yakin ingin menghapus seluruh riwayat log lokal?')) {
-                surveyLogs = [];
-                localStorage.removeItem('wo_pln_logs');
-                renderHistoryTable();
-                populateFilters();
-                showToast('Log berhasil dibersihkan', 'info');
+        function openPhotoModal(rowId) {
+            const row = historyLogs.find(r => String(r.id) === String(rowId));
+            if (row && row.photoData) {
+                document.getElementById('photo-modal-title').innerHTML = `<i class="bi bi-image text-emerald-600"></i> ${row.fileName} (${row.nama})`;
+                document.getElementById('photo-modal-img').src = row.photoData;
+                document.getElementById('photo-modal').classList.remove('hidden');
             }
+        }
+
+        function closePhotoModal() {
+            document.getElementById('photo-modal').classList.add('hidden');
         }
 
         function exportToExcel() {
-            if (surveyLogs.length === 0) {
-                alert('Tidak ada data untuk diexport!');
-                return;
-            }
-            let csv = 'Timestamp,Petugas,IDPEL,Nama Pelanggan,Alamat,Tarif,Daya,Keterangan,Foto URL\n';
-            surveyLogs.forEach(i => {
-                csv += `"${i.timestamp}","${i.user_petugas}","${i.idpel}","${i.nama_pelanggan}","${i.alamat_pelanggan}","${i.tarif}","${i.daya}","${i.keterangan}","${i.foto}"\n`;
+            requireAdminAuth(() => {
+                if (historyLogs.length === 0) {
+                    showModal("Data Kosong", "Belum ada data riwayat untuk di-export.", "warning");
+                    return;
+                }
+
+                const exportData = historyLogs.map(r => ({
+                    "TIMESTAMP": r.timestamp,
+                    "PETUGAS": r.petugas,
+                    "IDPEL": String(r.idpel),
+                    "NAMA PELANGGAN": r.nama,
+                    "ALAMAT PELANGGAN": r.alamat,
+                    "TARIF / DAYA": r.tarifDaya,
+                    "KETERANGAN": r.keterangan,
+                    "FOTO BUKTI": r.fileName,
+                    "STATUS": r.status
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat_WO_PLN");
+                XLSX.writeFile(workbook, `Laporan_WO_PLN_${new Date().toISOString().slice(0,10)}.xlsx`);
+
+                showModal("Export Excel Berhasil!", "File laporan format Excel (.xlsx) berhasil diunduh.");
             });
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `WO_PLN_Export_${new Date().toISOString().slice(0,10)}.csv`;
-            a.click();
         }
 
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            let bg = type === 'success' ? 'bg-emerald-600' : (type === 'warning' ? 'bg-amber-600' : 'bg-pln-blue');
-            toast.className = `${bg} text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium pointer-events-auto transition transform translate-y-2 opacity-0`;
-            toast.innerText = message;
-            container.appendChild(toast);
-            setTimeout(() => { toast.classList.remove('translate-y-2', 'opacity-0'); }, 50);
-            setTimeout(() => {
-                toast.classList.add('translate-y-2', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+        function clearLogConfirm() {
+            requireAdminAuth(() => {
+                openConfirmModal(
+                    "Hapus Semua Riwayat?",
+                    "Semua data riwayat pengerjaan akan dihapus dari browser ini. Tindakan ini tidak dapat dibatalkan.",
+                    () => {
+                        historyLogs = [];
+                        saveHistoryToStorage();
+                        renderHistoryTable();
+                        showModal("Riwayat Dihapus", "Seluruh log riwayat pengerjaan berhasil dibersihkan.");
+                    }
+                );
+            });
+        }
+
+        // =====================================================================
+        // LOGIKA TAB SETTING & DATABASE TARGET KERJA WO (6 KOLOM & .XLSX)
+        // =====================================================================
+        function saveSettings() {
+            const url = document.getElementById('script-url-input').value.trim();
+            if (url) {
+                localStorage.setItem('wo_pln_script_url', url);
+                showModal("Pengaturan Disimpan!", "URL Google Web App Script berhasil diperbarui.");
+            } else {
+                localStorage.removeItem('wo_pln_script_url');
+                showModal("URL Dikosongkan", "Aplikasi berjalan dalam mode penyimpanan lokal browser.", "info");
+            }
+        }
+
+        function changeAdminPin() {
+            const oldPinInput = document.getElementById('old-pin-input').value.trim();
+            const newPinInput = document.getElementById('new-pin-input').value.trim();
+            const currentActivePin = getAdminPin();
+
+            if (oldPinInput !== currentActivePin) {
+                showModal("PIN Lama Salah!", "PIN Lama yang Anda masukkan tidak cocok dengan PIN aktif saat ini.", "error");
+                return;
+            }
+
+            if (newPinInput.length < 4) {
+                showModal("PIN Terlalu Pendek", "Gunakan minimal 4 karakter/angka untuk PIN Admin baru.", "warning");
+                return;
+            }
+
+            localStorage.setItem('wo_admin_pin', newPinInput);
+            document.getElementById('old-pin-input').value = '';
+            document.getElementById('new-pin-input').value = '';
+            showModal("PIN Berhasil Diperbarui!", "Gunakan PIN baru tersebut saat membuka tab Riwayat berikutnya.");
+        }
+
+        // Normalisasi kode petugas jika di Excel tertulis "51806.1" -> "51806.01"
+        function normalizePetugasCode(raw) {
+            let val = String(raw || "").trim();
+            const match = val.match(/^51806\.(\d)$/);
+            if (match) {
+                return `51806.0${match[1]}`;
+            }
+            return val;
+        }
+
+        function upsertTargetRecord(petugas, idpel, nama, alamat, tarif, daya) {
+            const cleanPetugas = normalizePetugasCode(petugas);
+            const cleanIdpel = String(idpel || "").trim();
+            if (!cleanPetugas || !cleanIdpel) return false;
+
+            const record = {
+                petugas: cleanPetugas,
+                idpel: cleanIdpel,
+                nama: String(nama || "-").trim(),
+                alamat: String(alamat || "-").trim(),
+                tarif: String(tarif || "-").trim(),
+                daya: String(daya || "-").trim(),
+                status: 'Belum Dikerjakan'
+            };
+
+            const existingIdx = targetDatabase.findIndex(item => item.idpel === cleanIdpel);
+            if (existingIdx !== -1) {
+                record.status = targetDatabase[existingIdx].status;
+                targetDatabase[existingIdx] = record;
+            } else {
+                targetDatabase.push(record);
+            }
+            return true;
+        }
+
+        function addSingleTarget(e) {
+            e.preventDefault();
+            const petugas = document.getElementById('db-add-petugas').value;
+            const idpel = document.getElementById('db-add-idpel').value;
+            const nama = document.getElementById('db-add-nama').value;
+            const tarif = document.getElementById('db-add-tarif').value;
+            const daya = document.getElementById('db-add-daya').value;
+            const alamat = document.getElementById('db-add-alamat').value;
+
+            if (upsertTargetRecord(petugas, idpel, nama, alamat, tarif, daya)) {
+                saveTargetDbToStorage();
+                refreshAllUI();
+                e.target.reset();
+                showModal("Target Ditambahkan", `Data IDPEL ${idpel.trim()} (${nama.trim()}) untuk Petugas ${petugas} berhasil masuk database.`);
+            }
+        }
+
+        // Download Template Excel (.xlsx) 6 Kolom: Petugas | IDPEL | Nama | Alamat | Tarif | Daya
+        function downloadExcelTemplate() {
+            const templateRows = [
+                { Petugas: "51806.01", IDPEL: "518060112233", Nama: "Budi Santoso", Alamat: "Sendangharjo, Brondong", Tarif: "R1", Daya: "900" },
+                { Petugas: "51806.02", IDPEL: "518060445566", Nama: "Siti Aminah", Alamat: "Kranji, Paciran", Tarif: "R1M", Daya: "1300" },
+                { Petugas: "51806.16", IDPEL: "518060889900", Nama: "Ahmad Dahlan", Alamat: "Blimbing, Paciran", Tarif: "B1", Daya: "2200" }
+            ];
+            const ws = XLSX.utils.json_to_sheet(templateRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Template_Target_WO");
+            XLSX.writeFile(wb, "Template_Database_WO_PLN.xlsx");
+            showModal("Template Diunduh", "File Template_Database_WO_PLN.xlsx (6 Kolom) berhasil diunduh.");
+        }
+
+        // Import File Excel (.xlsx / .xls / .csv) menggunakan SheetJS
+        function importExcelFile() {
+            const fileInput = document.getElementById('xlsx-file-input');
+            if (!fileInput.files || !fileInput.files[0]) {
+                showModal("Pilih File Excel", "Silakan pilih file .xlsx, .xls, atau .csv terlebih dahulu.", "warning");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Baca sebagai array 2 dimensi agar tahan terhadap variasi penulisan header
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+                    let addedCount = 0;
+
+                    rows.forEach((cols, index) => {
+                        if (!cols || cols.length < 2) return;
+                        const col0 = String(cols[0] || "").trim();
+                        const col1 = String(cols[1] || "").trim();
+
+                        // Lewati baris header jika berisi judul kolom
+                        if (index === 0 && (col0.toLowerCase().includes("petugas") || col1.toLowerCase().includes("idpel"))) {
+                            return;
+                        }
+
+                        if (col0 && col1) {
+                            const inserted = upsertTargetRecord(
+                                col0,
+                                col1,
+                                cols[2] || "-",
+                                cols[3] || "-",
+                                cols[4] || "-",
+                                cols[5] || "-"
+                            );
+                            if (inserted) addedCount++;
+                        }
+                    });
+
+                    if (addedCount > 0) {
+                        saveTargetDbToStorage();
+                        refreshAllUI();
+                        fileInput.value = '';
+                        showModal("Import Excel Berhasil!", `${addedCount} data target WO dari file "${file.name}" berhasil masuk ke database.`);
+                    } else {
+                        showModal("Data Kosong / Tidak Valid", "Pastikan file Excel memiliki 6 kolom: Petugas, IDPEL, Nama, Alamat, Tarif, Daya.", "error");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showModal("Gagal Membaca File", "Terjadi kesalahan saat memproses file Excel. Pastikan format file valid (.xlsx / .xls / .csv).", "error");
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Import Bulk Copy-Paste (6 Kolom: Petugas | IDPEL | Nama | Alamat | Tarif | Daya)
+        function importBulkTargets() {
+            const rawText = document.getElementById('bulk-paste-input').value.trim();
+            if (!rawText) {
+                showModal("Input Kosong", "Silakan paste data target dari Excel atau ketik daftar target terlebih dahulu.", "warning");
+                return;
+            }
+
+            const lines = rawText.split(/\r?\n/);
+            let addedCount = 0;
+
+            lines.forEach(line => {
+                if (!line.trim()) return;
+                let parts = line.includes('\t') ? line.split('\t') : (line.includes(';') ? line.split(';') : line.split(','));
+                parts = parts.map(p => p.trim());
+
+                // Lewati baris header
+                if (parts[0].toLowerCase().includes('petugas') || parts[1]?.toLowerCase().includes('idpel')) return;
+
+                if (parts.length >= 2 && parts[0] && parts[1]) {
+                    const inserted = upsertTargetRecord(
+                        parts[0],
+                        parts[1],
+                        parts[2] || "-",
+                        parts[3] || "-",
+                        parts[4] || "-",
+                        parts[5] || "-"
+                    );
+                    if (inserted) addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                saveTargetDbToStorage();
+                refreshAllUI();
+                document.getElementById('bulk-paste-input').value = '';
+                showModal("Import Teks Berhasil!", `${addedCount} data target WO berhasil ditambahkan ke database.`);
+            } else {
+                showModal("Format Tidak Dikenali", "Pastikan setiap baris memiliki urutan: Petugas, IDPEL, Nama, Alamat, Tarif, Daya.", "error");
+            }
+        }
+
+        function renderDatabaseTable() {
+            const tbody = document.getElementById('database-table-body');
+            const filterVal = document.getElementById('db-search-input').value.toLowerCase();
+            document.getElementById('db-count-label').textContent = targetDatabase.length;
+
+            const filtered = targetDatabase.filter(item => 
+                item.petugas.toLowerCase().includes(filterVal) ||
+                item.idpel.toLowerCase().includes(filterVal) ||
+                item.nama.toLowerCase().includes(filterVal) ||
+                item.alamat.toLowerCase().includes(filterVal)
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="p-6 text-center text-slate-400">
+                            Tidak ada data target yang ditemukan.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => {
+                const isDone = item.status === 'Sudah Dikerjakan';
+                const statusBadge = isDone 
+                    ? `<span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-full"><i class="bi bi-check-circle-fill"></i> SUDAH</span>`
+                    : `<span class="inline-flex items-center gap-1 bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-1 rounded-full"><i class="bi bi-clock-fill"></i> BELUM</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-3 font-bold text-slate-900 whitespace-nowrap">${item.petugas}</td>
+                        <td class="p-3 font-bold text-indigo-700 whitespace-nowrap">${item.idpel}</td>
+                        <td class="p-3 font-semibold text-slate-800 whitespace-nowrap">${item.nama}</td>
+                        <td class="p-3 text-slate-500 max-w-xs truncate" title="${item.alamat}">${item.alamat}</td>
+                        <td class="p-3 font-semibold text-slate-700 whitespace-nowrap">${item.tarif}</td>
+                        <td class="p-3 font-semibold text-slate-700 whitespace-nowrap">${item.daya}</td>
+                        <td class="p-3 text-center whitespace-nowrap">${statusBadge}</td>
+                        <td class="p-3 text-center whitespace-nowrap">
+                            <button onclick="deleteSingleTarget('${item.idpel}')" class="text-rose-500 hover:text-rose-700 p-1 rounded-lg hover:bg-rose-50 transition" title="Hapus target ini">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function deleteSingleTarget(idpel) {
+            targetDatabase = targetDatabase.filter(item => item.idpel !== idpel);
+            saveTargetDbToStorage();
+            refreshAllUI();
+        }
+
+        function resetDefaultDatabase() {
+            openConfirmModal(
+                "Muat Contoh Database?",
+                "Database target akan diisi ulang dengan contoh data petugas & IDPEL standar.",
+                () => {
+                    targetDatabase = [...DEFAULT_TARGET_DB];
+                    saveTargetDbToStorage();
+                    refreshAllUI();
+                    showModal("Contoh Data Dimuat", "Contoh target kerja WO berhasil dimuat ke database.");
+                }
+            );
+        }
+
+        function clearTargetDatabase() {
+            openConfirmModal(
+                "Kosongkan Semua Target?",
+                "Seluruh daftar database target WO akan dihapus. Anda bisa mengisinya kembali kapan saja.",
+                () => {
+                    targetDatabase = [];
+                    saveTargetDbToStorage();
+                    refreshAllUI();
+                    showModal("Database Dikosongkan", "Seluruh data target kerja WO telah dihapus.");
+                }
+            );
+        }
+
+        // =====================================================================
+        // MODAL HELPER (PENGGANTI ALERT & CONFIRM BAWAAN BROWSER)
+        // =====================================================================
+        function showModal(title, msg, type = "success") {
+            const iconBox = document.getElementById('modal-icon');
+            if (type === "error") {
+                iconBox.className = "w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl";
+                iconBox.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+            } else if (type === "warning") {
+                iconBox.className = "w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl";
+                iconBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
+            } else if (type === "info") {
+                iconBox.className = "w-12 h-12 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl";
+                iconBox.innerHTML = '<i class="bi bi-info-circle-fill"></i>';
+            } else {
+                iconBox.className = "w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl";
+                iconBox.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+            }
+
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-msg').textContent = msg;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+
+        function openConfirmModal(title, msg, onConfirmCallback) {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-msg').textContent = msg;
+            const yesBtn = document.getElementById('confirm-yes-btn');
+            yesBtn.onclick = function() {
+                closeConfirmModal();
+                onConfirmCallback();
+            };
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
         }
     </script>
 </body>
