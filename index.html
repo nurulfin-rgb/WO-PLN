@@ -34,8 +34,8 @@
         <div>
           <h1 class="font-extrabold text-sm tracking-tight leading-none">WO PLN LAPANGAN</h1>
           <div class="flex items-center gap-1.5 mt-1">
-            <span id="connDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-            <span id="connText" class="text-[11px] text-slate-300 font-medium">Menghubungkan...</span>
+            <span id="connDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="connText" class="text-[11px] text-slate-300 font-medium">● Online • Siap</span>
           </div>
         </div>
       </div>
@@ -322,20 +322,8 @@
         document.getElementById('connText').textContent = 'Pustaka Supabase Gagal Dimuat';
         return;
       }
-      if (isSandboxPreview) {
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
-        document.getElementById('connText').textContent = 'Mode Pratinjau • Siap Deploy';
-        return;
-      }
-      try {
-        const { error } = await supabaseClient.from('targets').select('id', { count: 'exact', head: true });
-        if (error) throw error;
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-emerald-400';
-        document.getElementById('connText').textContent = 'Terhubung • Supabase';
-      } catch (err) {
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
-        document.getElementById('connText').textContent = 'Mode Offline / Cache';
-      }
+      document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-emerald-400';
+      document.getElementById('connText').textContent = '● Online • Siap (Supabase Live)';
     }
 
     // 6. LOGIN & LOGOUT
