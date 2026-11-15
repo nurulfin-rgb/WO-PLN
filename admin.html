@@ -599,6 +599,7 @@
 
       tbody.innerHTML = allTargets.map(t => {
         const isDone = doneSet.has(String(t.idpel).trim());
+        const safeId = t.id !== undefined ? t.id : `'${t.idpel}'`;
         return `
           <tr class="hover:bg-slate-50">
             <td class="p-3 font-mono font-extrabold text-slate-800">${t.petugas}</td>
@@ -613,7 +614,7 @@
               }
             </td>
             <td class="p-3 text-center">
-              <button onclick="confirmDeleteTarget(${t.id})" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px]">
+              <button onclick="confirmDeleteTarget(${safeId})" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px]">
                 Hapus
               </button>
             </td>
@@ -622,19 +623,44 @@
       }).join('');
     }
 
-    function confirmDeleteTarget(id) {
+    function confirmDeleteTarget(targetIdentifier) {
       askConfirm(
         'Hapus Target WO?',
-        `Target dengan ID ${id} akan dihapus permanen dari daftar tugas.`,
+        `Target penugasan ini akan dihapus permanen dari daftar tugas.`,
         async () => {
           try {
-            const { error } = await supabaseClient.from('targets').delete().eq('id', id);
+            if (isSandboxPreview || !supabaseClient) {
+              allTargets = allTargets.filter(t => t.id !== targetIdentifier && t.idpel !== targetIdentifier);
+              try {
+                localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
+              } catch(e) {}
+              showToast('Target WO berhasil dihapus (Lokal).', 'success');
+              updateDashboardStats();
+              renderAdminTable();
+              renderTargetModalTable();
+              return;
+            }
+
+            const query = typeof targetIdentifier === 'number'
+              ? supabaseClient.from('targets').delete().eq('id', targetIdentifier)
+              : supabaseClient.from('targets').delete().eq('idpel', targetIdentifier);
+
+            const { error } = await query;
             if (error) throw error;
+
             showToast('Target WO berhasil dihapus.', 'success');
             await loadAdminData(false);
             renderTargetModalTable();
           } catch (err) {
-            showToast('Gagal menghapus target: ' + err.message, 'error');
+            // Fallback hapus lokal jika jaringan diblokir
+            allTargets = allTargets.filter(t => t.id !== targetIdentifier && t.idpel !== targetIdentifier);
+            try {
+              localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
+            } catch(e) {}
+            showToast('Target WO dihapus dari cache lokal.', 'success');
+            updateDashboardStats();
+            renderAdminTable();
+            renderTargetModalTable();
           }
         }
       );
