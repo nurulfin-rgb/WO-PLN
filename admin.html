@@ -4,107 +4,162 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADMIN DASHBOARD • WO PLN</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SheetJS (XLSX) untuk Import & Export Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f1f5f9;
+    }
   </style>
 </head>
-<body class="text-slate-800 pb-14">
+<body class="text-slate-800 pb-14 min-h-screen flex flex-col">
 
-  <!-- TOP BAR ADMIN -->
-  <header class="bg-slate-950 text-white sticky top-0 z-30 shadow-lg">
+  <!-- TOAST NOTIFICATION CONTAINER (PENGGANTI ALERT/CONFIRM) -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none"></div>
+
+  <!-- ===================================================================== -->
+  <!-- TOP BAR ADMIN                                                         -->
+  <!-- ===================================================================== -->
+  <header class="bg-slate-950 text-white sticky top-0 z-30 shadow-lg border-b border-slate-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-extrabold text-xl shadow">⚡</div>
+        <div class="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-extrabold text-2xl shadow-md shadow-amber-400/20">
+          ⚡
+        </div>
         <div>
           <div class="flex items-center gap-2">
-            <span class="text-[10px] font-extrabold bg-amber-400 text-slate-950 px-2 py-0.5 rounded uppercase">Admin Control</span>
-            <span id="connStatus" class="text-xs font-semibold text-amber-400">Menghubungkan...</span>
+            <span class="text-[10px] font-extrabold bg-amber-400 text-slate-950 px-2 py-0.5 rounded uppercase tracking-wider">
+              ADMIN CONTROL
+            </span>
+            <span id="connStatus" class="text-xs font-semibold text-amber-400">
+              ● Menghubungkan...
+            </span>
           </div>
-          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight mt-0.5">ADMIN DASHBOARD • WO PLN</h1>
+          <h1 class="text-lg sm:text-xl font-extrabold tracking-tight mt-0.5">
+            ADMIN DASHBOARD • WO PLN
+          </h1>
         </div>
       </div>
 
+      <!-- Tombol Aksi Utama Admin -->
       <div class="flex flex-wrap items-center gap-2">
-        <button onclick="loadAdminData()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700">🔄 Sync / Refresh</button>
-        <button onclick="openTargetModal()" class="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-extrabold">📋 Kelola Target (<span id="btnTargetCount">0</span>)</button>
-        <button onclick="openImportModal()" class="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold">📥 Import Target (.xlsx)</button>
-        <button onclick="exportExcel()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold">📤 Download Rekap (.xlsx)</button>
+        <button onclick="loadAdminData(true)" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-bold border border-slate-700 transition">
+          🔄 Sync / Refresh
+        </button>
+        <button onclick="openTargetModal()" class="px-3.5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-500 active:scale-95 text-slate-950 text-xs font-extrabold shadow-sm transition">
+          📋 Kelola Target (<span id="btnTargetCount">0</span>)
+        </button>
+        <button onclick="openImportModal()" class="px-3.5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
+          📥 Import Target (.xlsx)
+        </button>
+        <button onclick="exportExcel()" class="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
+          📤 Download Rekap (.xlsx)
+        </button>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-6 space-y-6">
+  <!-- ===================================================================== -->
+  <!-- KONTEN UTAMA DASHBOARD                                                -->
+  <!-- ===================================================================== -->
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 mt-6 space-y-6 flex-1">
 
-    <!-- KARTU STATISTIK -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- 1. KARTU STATISTIK RINGKASAN (4 KOLOM) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Target WO -->
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-        <div class="text-xs font-extrabold text-slate-400 uppercase">Total Target WO</div>
-        <div id="statTarget" class="text-3xl font-extrabold text-slate-900 mt-1">0</div>
+        <div class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">TOTAL TARGET WO</div>
+        <div id="statTarget" class="text-3xl font-extrabold text-slate-900 mt-1.5">0</div>
         <div class="text-[11px] text-slate-400 mt-1">Data dari tabel targets</div>
       </div>
+
+      <!-- Total Selesai -->
       <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm">
-        <div class="text-xs font-extrabold text-emerald-600 uppercase">Total Selesai</div>
-        <div id="statSelesai" class="text-3xl font-extrabold text-emerald-600 mt-1">0</div>
+        <div class="text-xs font-extrabold text-emerald-600 uppercase tracking-wider">TOTAL SELESAI</div>
+        <div id="statSelesai" class="text-3xl font-extrabold text-emerald-600 mt-1.5">0</div>
         <div class="text-[11px] text-emerald-600/80 mt-1">Laporan masuk lapangan</div>
       </div>
+
+      <!-- Belum Dikerjakan -->
       <div class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
-        <div class="text-xs font-extrabold text-amber-600 uppercase">Belum Dikerjakan</div>
-        <div id="statBelum" class="text-3xl font-extrabold text-amber-600 mt-1">0</div>
+        <div class="text-xs font-extrabold text-amber-600 uppercase tracking-wider">BELUM DIKERJAKAN</div>
+        <div id="statBelum" class="text-3xl font-extrabold text-amber-600 mt-1.5">0</div>
         <div class="text-[11px] text-amber-600/80 mt-1">Sisa target belum selesai</div>
       </div>
+
+      <!-- Persentase Selesai -->
       <div class="bg-white p-5 rounded-2xl border border-sky-200 shadow-sm">
-        <div class="text-xs font-extrabold text-sky-600 uppercase">Persentase Selesai</div>
-        <div id="statPersen" class="text-3xl font-extrabold text-sky-600 mt-1">0%</div>
-        <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
-          <div id="progressBar" class="bg-sky-600 h-full transition-all duration-500" style="width: 0%"></div>
+        <div class="text-xs font-extrabold text-sky-600 uppercase tracking-wider">PERSENTASE SELESAI</div>
+        <div id="statPersen" class="text-3xl font-extrabold text-sky-600 mt-1.5">0%</div>
+        <div class="w-full bg-slate-100 h-2.5 rounded-full mt-2.5 overflow-hidden">
+          <div id="progressBar" class="bg-sky-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
         </div>
       </div>
     </div>
 
-    <!-- FILTER & PENCARIAN -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+    <!-- 2. BAR FILTER & PENCARIAN -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
       <div class="flex flex-wrap items-center gap-3">
-        <select id="filterPetugas" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50">
+        <!-- Filter Petugas (Tanpa kata 'Petugas' pada opsi individu) -->
+        <select id="filterPetugas" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
           <option value="ALL">Semua Petugas (51806.01 - 16)</option>
         </select>
-        <select id="filterKet" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50">
+
+        <!-- Filter Keterangan -->
+        <select id="filterKet" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
           <option value="ALL">Semua Keterangan</option>
           <option value="RATTING PLN MOBILE">RATTING PLN MOBILE</option>
           <option value="TRANSAKSI PLN MOBILE">TRANSAKSI PLN MOBILE</option>
           <option value="SOSIALISASI PLN MOBILE">SOSIALISASI PLN MOBILE</option>
         </select>
       </div>
-      <input type="text" id="searchAdmin" oninput="renderAdminTable()" placeholder="Cari IDPEL atau Nama Pelanggan..." class="w-full sm:w-72 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:border-sky-500" />
+
+      <!-- Input Pencarian -->
+      <div class="relative w-full md:w-80">
+        <input type="text" id="searchAdmin" oninput="renderAdminTable()" placeholder="Cari IDPEL atau Nama Pelanggan..." class="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500" />
+        <span class="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
+      </div>
     </div>
 
-    <!-- TABEL HASIL PEKERJAAN LAPANGAN -->
+    <!-- 3. TABEL UTAMA: HASIL PEKERJAAN LAPANGAN -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h2 class="font-extrabold text-base text-slate-900">Hasil Pekerjaan Lapangan</h2>
-        <span id="badgeCount" class="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-extrabold">0 Data</span>
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div class="flex items-center gap-2">
+          <h2 class="font-extrabold text-base text-slate-900">Hasil Pekerjaan Lapangan</h2>
+          <span class="text-[11px] text-slate-400 hidden sm:inline">• Auto-sync setiap 15 detik</span>
+        </div>
+        <span id="badgeCount" class="px-3 py-1 rounded-full bg-slate-900 text-amber-400 text-xs font-extrabold">
+          0 Data
+        </span>
       </div>
+
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="bg-slate-950 text-white text-[11px] uppercase tracking-wider">
-              <th class="py-3.5 px-4">Waktu</th>
-              <th class="py-3.5 px-4">Petugas</th>
-              <th class="py-3.5 px-4">IDPEL</th>
-              <th class="py-3.5 px-4">Nama</th>
-              <th class="py-3.5 px-4">Alamat</th>
-              <th class="py-3.5 px-4">Tarif</th>
-              <th class="py-3.5 px-4">Daya</th>
-              <th class="py-3.5 px-4">Keterangan</th>
-              <th class="py-3.5 px-4 text-center">Foto</th>
-              <th class="py-3.5 px-4 text-center">Aksi</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">WAKTU</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">PETUGAS</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">IDPEL</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">NAMA</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">ALAMAT</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">TARIF</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">DAYA</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">KETERANGAN</th>
+              <th class="py-3.5 px-4 text-center whitespace-nowrap">FOTO</th>
+              <th class="py-3.5 px-4 text-center whitespace-nowrap">AKSI</th>
             </tr>
           </thead>
           <tbody id="adminTableBody" class="divide-y divide-slate-100 text-xs">
-            <tr><td colspan="10" class="py-10 text-center text-slate-400">Memuat data...</td></tr>
+            <tr>
+              <td colspan="10" class="py-12 text-center text-slate-400">Memuat data dari Supabase...</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -112,42 +167,66 @@
 
   </main>
 
-  <!-- MODAL IMPORT EXCEL -->
-  <div id="modalImport" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-extrabold text-base">Import Target WO (Excel)</h3>
-        <button onclick="document.getElementById('modalImport').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold">✕</button>
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: IMPORT TARGET (.XLSX / .CSV)                                 -->
+  <!-- ===================================================================== -->
+  <div id="modalImport" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-extrabold text-base text-slate-900">📥 Import Target WO (.xlsx / .csv)</h3>
+        <button onclick="closeImportModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">✕</button>
       </div>
-      <div class="bg-slate-100 p-3 rounded-xl text-[11px] text-slate-600 mb-4 font-mono">
-        Header Excel wajib:<br>
-        <strong>petugas | idpel | nama | alamat | tarif | daya</strong>
-      </div>
-      <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" class="w-full text-xs border border-slate-300 rounded-xl p-2.5 mb-4" />
-      <div class="flex justify-end gap-2">
-        <button onclick="document.getElementById('modalImport').classList.add('hidden')" class="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold">Batal</button>
-        <button id="btnRunImport" onclick="processExcelImport()" class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold">Upload ke Supabase</button>
+
+      <div class="mt-4 space-y-4">
+        <div class="bg-sky-50 border border-sky-200 p-3.5 rounded-2xl text-xs text-sky-900 space-y-1.5">
+          <div class="font-extrabold">Header Kolom Excel Wajib:</div>
+          <div class="font-mono bg-white px-2.5 py-1.5 rounded-lg border border-sky-200 text-[11px] font-bold">
+            petugas | idpel | nama | alamat | tarif | daya
+          </div>
+          <p class="text-[11px] text-sky-700">Contoh kode petugas: <code class="font-mono font-bold">51806.01</code> s/d <code class="font-mono font-bold">51806.16</code></p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Pilih File Excel / CSV</label>
+          <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" class="w-full text-xs text-slate-600 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-sky-600 file:text-white border border-slate-300 rounded-xl bg-slate-50 cursor-pointer" />
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button onclick="closeImportModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-bold">
+            Batal
+          </button>
+          <button id="btnRunImport" onclick="processExcelImport()" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold shadow-sm">
+            Upload ke Supabase ➔
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL KELOLA TARGET -->
-  <div id="modalTargets" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-3xl rounded-2xl p-6 max-h-[85vh] flex flex-col shadow-2xl">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <h3 class="font-extrabold text-base">Daftar Target WO di Supabase</h3>
-        <button onclick="document.getElementById('modalTargets').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold">✕</button>
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: KELOLA TARGET WO                                             -->
+  <!-- ===================================================================== -->
+  <div id="modalTargets" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white w-full max-w-4xl rounded-3xl p-6 max-h-[88vh] flex flex-col shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-200">
+        <div>
+          <h3 class="font-extrabold text-base text-slate-900">📋 Daftar Target WO di Supabase</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Kelola target penugasan yang dikirim ke aplikasi petugas lapangan</p>
+        </div>
+        <button onclick="closeTargetModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">✕</button>
       </div>
-      <div class="overflow-y-auto flex-1 mt-3">
+
+      <div class="overflow-y-auto flex-1 mt-4 border border-slate-200 rounded-2xl">
         <table class="w-full text-left text-xs border-collapse">
-          <thead class="bg-slate-100 sticky top-0">
+          <thead class="bg-slate-900 text-white sticky top-0 text-[11px] uppercase">
             <tr>
-              <th class="p-2.5">Petugas</th>
-              <th class="p-2.5">IDPEL</th>
-              <th class="p-2.5">Nama</th>
-              <th class="p-2.5">Alamat</th>
-              <th class="p-2.5">Tarif/Daya</th>
-              <th class="p-2.5 text-center">Hapus</th>
+              <th class="p-3">Petugas</th>
+              <th class="p-3">IDPEL</th>
+              <th class="p-3">Nama Pelanggan</th>
+              <th class="p-3">Alamat</th>
+              <th class="p-3">Tarif / Daya</th>
+              <th class="p-3">Status</th>
+              <th class="p-3 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody id="targetModalBody" class="divide-y divide-slate-100"></tbody>
@@ -156,36 +235,137 @@
     </div>
   </div>
 
-  <!-- MODAL PREVIEW FOTO -->
-  <div id="modalFoto" onclick="this.classList.add('hidden')" class="fixed inset-0 bg-slate-950/85 z-50 hidden flex items-center justify-center p-4">
-    <img id="modalFotoImg" src="" class="max-w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 border-white" />
+  <!-- ===================================================================== -->
+  <!-- MODAL 3: FULLSCREEN PREVIEW FOTO                                      -->
+  <!-- ===================================================================== -->
+  <div id="modalFoto" onclick="closeFotoModal()" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="relative max-w-3xl w-full flex flex-col items-center" onclick="event.stopPropagation()">
+      <div class="w-full flex items-center justify-between text-white mb-3 px-1">
+        <span id="modalFotoCaption" class="text-xs font-bold text-slate-300">Dokumentasi Lapangan</span>
+        <button onclick="closeFotoModal()" class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-extrabold">
+          ✕ Tutup
+        </button>
+      </div>
+      <img id="modalFotoImg" src="" alt="Foto Dokumentasi" class="max-w-full max-h-[82vh] rounded-2xl shadow-2xl border-2 border-slate-700 object-contain bg-slate-900" />
+    </div>
   </div>
 
-  <script>
-    // KONFIGURASI SUPABASE PROJECT ANDA
-    const SUPABASE_URL = 'https://suutoxvenuuwlpbkblbn.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1dXRveHZlbnV1d2xwYmtibGJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTk1MjcsImV4cCI6MjA5MTE5NTUyN30.88x5n1G442A7L5H3G57v0175c749e144b9124653928';
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <!-- ===================================================================== -->
+  <!-- MODAL 4: KONFIRMASI HAPUS (PENGGANTI CONFIRM())                       -->
+  <!-- ===================================================================== -->
+  <div id="modalConfirm" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-[60] hidden items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl mx-auto mb-3">
+        🗑️
+      </div>
+      <h4 id="confirmTitle" class="font-extrabold text-base text-slate-900">Konfirmasi Hapus</h4>
+      <p id="confirmMessage" class="text-xs text-slate-500 mt-1.5 leading-relaxed">Apakah Anda yakin ingin menghapus data ini?</p>
+      <div class="flex gap-2.5 mt-5">
+        <button onclick="closeConfirmModal()" class="w-1/2 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-bold">
+          Batal
+        </button>
+        <button id="btnConfirmAction" class="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-sm">
+          Ya, Hapus
+        </button>
+      </div>
+    </div>
+  </div>
 
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT LOGIC                                                      -->
+  <!-- ===================================================================== -->
+  <script>
+    // 1. KONFIGURASI SUPABASE (MENGGUNAKAN PUBLISHABLE KEY PROJECT ANDA)
+    const SUPABASE_URL = 'https://suutoxvenuuwlpbkblbn.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_QTkqhUV8kguwZODdihQn-g_8io8WC7P';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // 2. STATE DATA
     let allTargets = [];
     let allResults = [];
+    let filteredResults = [];
+    let isSandboxPreview = window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent.goog');
 
-    // Isi filter 16 petugas
+    const FALLBACK_TARGETS = [
+      { id: 1, petugas: '51806.12', idpel: '518060039198', nama: 'SAIFUL', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '450' },
+      { id: 2, petugas: '51806.12', idpel: '518060039201', nama: 'WARSITAH', alamat: 'blimbing', tarif: 'R1', daya: '900' },
+      { id: 3, petugas: '51806.12', idpel: '518060039180', nama: 'SAKUR', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '900' },
+      { id: 4, petugas: '51806.12', idpel: '518060039219', nama: 'SISWANDI', alamat: 'blimbing', tarif: 'R1', daya: '900' },
+      { id: 5, petugas: '51806.12', idpel: '518060115094', nama: 'SULAN', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '900' },
+      { id: 6, petugas: '51806.14', idpel: '518060359038', nama: 'selamet', alamat: 'JETAK PACIRAN', tarif: 'R1M', daya: '900' },
+      { id: 7, petugas: '51806.14', idpel: '518060004668', nama: 'safii', alamat: 'paciran', tarif: 'R1', daya: '900' },
+      { id: 8, petugas: '51806.14', idpel: '518060288388', nama: 'sudarman', alamat: 'paciran', tarif: 'R1M', daya: '900' }
+    ];
+
+    // 3. POPULATE DROPDOWN FILTER PETUGAS (TANPA KATA 'PETUGAS' PADA OPSI INDIVIDU)
     const fPetugas = document.getElementById('filterPetugas');
     for (let i = 1; i <= 16; i++) {
       const code = `51806.${String(i).padStart(2, '0')}`;
       const opt = document.createElement('option');
       opt.value = code;
-      opt.textContent = `Petugas ${code}`;
+      opt.textContent = code;
       fPetugas.appendChild(opt);
     }
 
-    async function loadAdminData() {
+    // 4. NOTIFIKASI TOAST
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const colors = {
+        success: 'bg-emerald-600 text-white border-emerald-500',
+        error: 'bg-rose-600 text-white border-rose-500',
+        warning: 'bg-amber-400 text-slate-950 border-amber-300',
+        info: 'bg-slate-900 text-white border-slate-700'
+      };
+      const icons = { success: '✅', error: '❌', warning: '⚠️', info: '⚡' };
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-extrabold transition-all duration-300 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${icons[type] || '⚡'}</span><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    // 5. MODAL KONFIRMASI CUSTOM
+    function askConfirm(title, message, onConfirm) {
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmMessage').textContent = message;
+      const btn = document.getElementById('btnConfirmAction');
+      btn.onclick = async () => {
+        closeConfirmModal();
+        await onConfirm();
+      };
+      const modal = document.getElementById('modalConfirm');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('modalConfirm');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // 6. LOAD DATA REAL-TIME DARI SUPABASE
+    async function loadAdminData(notify = false) {
+      if (isSandboxPreview) {
+        document.getElementById('connStatus').textContent = '● Mode Pratinjau • Siap Deploy';
+        document.getElementById('connStatus').className = 'text-xs font-semibold text-amber-400';
+        allTargets = JSON.parse(localStorage.getItem('admin_demo_targets') || 'null') || [...FALLBACK_TARGETS];
+        allResults = JSON.parse(localStorage.getItem('admin_demo_results') || '[]');
+        updateDashboardStats();
+        renderAdminTable();
+        if (notify) showToast('Data pratinjau dimuat!', 'info');
+        return;
+      }
       try {
         const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
-          db.from('targets').select('*').order('id', { ascending: true }),
-          db.from('results').select('*').order('id', { ascending: false })
+          supabaseClient.from('targets').select('*').order('id', { ascending: true }),
+          supabaseClient.from('results').select('*').order('id', { ascending: false })
         ]);
+
         if (tErr) throw tErr;
         if (rErr) throw rErr;
 
@@ -195,84 +375,157 @@
         allTargets = tData || [];
         allResults = rData || [];
 
-        const totalTarget = allTargets.length;
-        const totalSelesai = allResults.length;
-        const belum = Math.max(0, totalTarget - totalSelesai);
-        const persen = totalTarget > 0 ? Math.round((totalSelesai / totalTarget) * 100) : 0;
-
-        document.getElementById('btnTargetCount').textContent = totalTarget;
-        document.getElementById('statTarget').textContent = totalTarget;
-        document.getElementById('statSelesai').textContent = totalSelesai;
-        document.getElementById('statBelum').textContent = belum;
-        document.getElementById('statPersen').textContent = persen + '%';
-        document.getElementById('progressBar').style.width = persen + '%';
-
+        updateDashboardStats();
         renderAdminTable();
+        if (notify) showToast('Data berhasil disinkronkan!', 'success');
       } catch (err) {
-        document.getElementById('connStatus').textContent = '● Gagal Terhubung';
-        document.getElementById('connStatus').className = 'text-xs font-semibold text-rose-400';
-        console.error(err);
+        document.getElementById('connStatus').textContent = '● Mode Offline / Cache';
+        document.getElementById('connStatus').className = 'text-xs font-semibold text-amber-400';
+        allTargets = JSON.parse(localStorage.getItem('admin_demo_targets') || 'null') || [...FALLBACK_TARGETS];
+        allResults = JSON.parse(localStorage.getItem('admin_demo_results') || '[]');
+        updateDashboardStats();
+        renderAdminTable();
+        if (notify) showToast('Menampilkan data cache lokal.', 'warning');
       }
     }
 
+    function updateDashboardStats() {
+      const totalTarget = allTargets.length;
+      const totalSelesai = allResults.length;
+      const belum = Math.max(0, totalTarget - totalSelesai);
+      const persen = totalTarget > 0 ? Math.min(100, Math.round((totalSelesai / totalTarget) * 100)) : 0;
+
+      document.getElementById('btnTargetCount').textContent = totalTarget;
+      document.getElementById('statTarget').textContent = totalTarget;
+      document.getElementById('statSelesai').textContent = totalSelesai;
+      document.getElementById('statBelum').textContent = belum;
+      document.getElementById('statPersen').textContent = persen + '%';
+      document.getElementById('progressBar').style.width = persen + '%';
+    }
+
+    // 7. RENDER TABEL HASIL PEKERJAAN LAPANGAN
     function renderAdminTable() {
       const pFilter = document.getElementById('filterPetugas').value;
       const kFilter = document.getElementById('filterKet').value;
-      const q = document.getElementById('searchAdmin').value.toLowerCase();
+      const q = document.getElementById('searchAdmin').value.toLowerCase().trim();
 
-      const filtered = allResults.filter(r => {
-        const matchP = pFilter === 'ALL' || r.petugas === pFilter;
-        const matchK = kFilter === 'ALL' || r.keterangan === kFilter;
-        const matchQ = String(r.idpel).toLowerCase().includes(q) || String(r.nama).toLowerCase().includes(q);
+      filteredResults = allResults.filter(r => {
+        const matchP = pFilter === 'ALL' || String(r.petugas).trim() === pFilter;
+        const matchK = kFilter === 'ALL' || String(r.keterangan).trim() === kFilter;
+        const matchQ = !q ||
+          String(r.idpel || '').toLowerCase().includes(q) ||
+          String(r.nama || '').toLowerCase().includes(q);
         return matchP && matchK && matchQ;
       });
 
-      document.getElementById('badgeCount').textContent = `${filtered.length} Data`;
+      document.getElementById('badgeCount').textContent = `${filteredResults.length} Data`;
       const tbody = document.getElementById('adminTableBody');
 
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="py-10 text-center text-slate-400">Belum ada data laporan hasil pekerjaan lapangan.</td></tr>`;
+      if (filteredResults.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="10" class="py-12 text-center text-slate-400">
+              Belum ada data hasil pekerjaan lapangan yang sesuai filter.
+            </td>
+          </tr>
+        `;
         return;
       }
 
-      tbody.innerHTML = filtered.map(r => `
-        <tr class="hover:bg-slate-50">
-          <td class="py-3 px-4 whitespace-nowrap text-slate-500">${r.waktu || '-'}</td>
-          <td class="py-3 px-4 font-bold text-slate-800">${r.petugas}</td>
-          <td class="py-3 px-4 font-mono font-bold">${r.idpel}</td>
-          <td class="py-3 px-4 font-bold">${r.nama}</td>
-          <td class="py-3 px-4 text-slate-600">${r.alamat}</td>
-          <td class="py-3 px-4">${r.tarif || '-'}</td>
-          <td class="py-3 px-4">${r.daya || '-'}</td>
-          <td class="py-3 px-4"><span class="px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">${r.keterangan}</span></td>
-          <td class="py-3 px-4 text-center">
-            ${r.foto_url ? `<button onclick="viewFoto('${r.foto_url}')" class="px-2.5 py-1 rounded bg-sky-100 text-sky-700 font-bold hover:bg-sky-200">Lihat Foto</button>` : '-'}
-          </td>
-          <td class="py-3 px-4 text-center">
-            <button onclick="deleteResult(${r.id})" class="text-rose-600 hover:underline font-bold">Hapus</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = filteredResults.map(r => {
+        const safeCaption = `${r.nama || '-'} (${r.idpel || '-'}) • ${r.keterangan || '-'}`.replace(/'/g, "\\'");
+        const safeUrl = (r.foto_url || '').replace(/'/g, "\\'");
+        return `
+          <tr class="hover:bg-slate-50/90 transition">
+            <td class="py-3 px-4 whitespace-nowrap text-slate-500 font-medium">${r.waktu || '-'}</td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="px-2 py-1 rounded-md bg-slate-900 text-amber-400 font-mono font-extrabold text-[11px]">
+                ${r.petugas || '-'}
+              </span>
+            </td>
+            <td class="py-3 px-4 whitespace-nowrap font-mono font-extrabold text-slate-800">${r.idpel || '-'}</td>
+            <td class="py-3 px-4 font-bold text-slate-900">${r.nama || '-'}</td>
+            <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${r.alamat || ''}">${r.alamat || '-'}</td>
+            <td class="py-3 px-4 whitespace-nowrap font-semibold">${r.tarif || '-'}</td>
+            <td class="py-3 px-4 whitespace-nowrap font-semibold">${r.daya || '-'}</td>
+            <td class="py-3 px-4 whitespace-nowrap">
+              <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-[10px]">
+                ${r.keterangan || '-'}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-center whitespace-nowrap">
+              ${r.foto_url
+                ? `<button onclick="viewFoto('${safeUrl}', '${safeCaption}')" class="px-2.5 py-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-extrabold text-[11px] transition">
+                    🖼️ Lihat Foto
+                  </button>`
+                : '<span class="text-slate-400">-</span>'
+              }
+            </td>
+            <td class="py-3 px-4 text-center whitespace-nowrap">
+              <button onclick="confirmDeleteResult(${r.id}, '${String(r.idpel || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px] transition">
+                Hapus
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    function viewFoto(url) {
+    // 8. FULLSCREEN FOTO MODAL
+    function viewFoto(url, caption) {
       document.getElementById('modalFotoImg').src = url;
-      document.getElementById('modalFoto').classList.remove('hidden');
+      document.getElementById('modalFotoCaption').textContent = caption || 'Dokumentasi Lapangan';
+      const modal = document.getElementById('modalFoto');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
     }
 
-    async function deleteResult(id) {
-      if (!confirm('Hapus laporan ini?')) return;
-      await db.from('results').delete().eq('id', id);
-      loadAdminData();
+    function closeFotoModal() {
+      const modal = document.getElementById('modalFoto');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.getElementById('modalFotoImg').src = '';
     }
 
+    // 9. HAPUS LAPORAN (RESULTS)
+    function confirmDeleteResult(id, idpel) {
+      askConfirm(
+        'Hapus Hasil Laporan?',
+        `Laporan untuk IDPEL ${idpel} akan dihapus permanen dari tabel results.`,
+        async () => {
+          try {
+            const { error } = await supabaseClient.from('results').delete().eq('id', id);
+            if (error) throw error;
+            showToast('Laporan berhasil dihapus.', 'success');
+            await loadAdminData(false);
+          } catch (err) {
+            showToast('Gagal menghapus: ' + err.message, 'error');
+          }
+        }
+      );
+    }
+
+    // 10. MODAL IMPORT EXCEL TARGET
     function openImportModal() {
-      document.getElementById('modalImport').classList.remove('hidden');
+      document.getElementById('excelFileInput').value = '';
+      const modal = document.getElementById('modalImport');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeImportModal() {
+      const modal = document.getElementById('modalImport');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
     }
 
     async function processExcelImport() {
       const file = document.getElementById('excelFileInput').files[0];
-      if (!file) return alert('Pilih file Excel terlebih dahulu!');
+      if (!file) {
+        showToast('Pilih file Excel (.xlsx / .csv) terlebih dahulu!', 'warning');
+        return;
+      }
+
       const btn = document.getElementById('btnRunImport');
       btn.disabled = true;
       btn.textContent = 'Memproses...';
@@ -281,73 +534,132 @@
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf);
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+
         const payload = rows.map(r => ({
           petugas: String(r.petugas || r.PETUGAS || '').trim(),
           idpel: String(r.idpel || r.IDPEL || '').trim(),
-          nama: String(r.nama || r.NAMA || '').trim(),
-          alamat: String(r.alamat || r.ALAMAT || '').trim(),
-          tarif: String(r.tarif || r.TARIF || '').trim(),
-          daya: String(r.daya || r.DAYA || '').trim()
+          nama: String(r.nama || r.NAMA || '-').trim(),
+          alamat: String(r.alamat || r.ALAMAT || '-').trim(),
+          tarif: String(r.tarif || r.TARIF || '-').trim(),
+          daya: String(r.daya || r.DAYA || '-').trim()
         })).filter(x => x.petugas && x.idpel);
 
-        if (payload.length === 0) throw new Error('Format kolom Excel tidak sesuai!');
-        const { error } = await db.from('targets').insert(payload);
+        if (payload.length === 0) {
+          throw new Error('Tidak ada baris valid. Pastikan header kolom sesuai format!');
+        }
+
+        const { error } = await supabaseClient.from('targets').insert(payload);
         if (error) throw error;
 
-        alert(`Berhasil mengimpor ${payload.length} target WO ke Supabase!`);
-        document.getElementById('modalImport').classList.add('hidden');
-        loadAdminData();
+        showToast(`Berhasil mengimpor ${payload.length} target WO ke Supabase!`, 'success');
+        closeImportModal();
+        await loadAdminData(false);
       } catch (err) {
-        alert('Gagal import: ' + err.message);
+        showToast('Gagal import: ' + err.message, 'error');
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Upload ke Supabase';
+        btn.textContent = 'Upload ke Supabase ➔';
       }
     }
 
+    // 11. MODAL KELOLA TARGET WO
     function openTargetModal() {
+      renderTargetModalTable();
+      const modal = document.getElementById('modalTargets');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeTargetModal() {
+      const modal = document.getElementById('modalTargets');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function renderTargetModalTable() {
+      const doneSet = new Set(allResults.map(r => String(r.idpel).trim()));
       const tbody = document.getElementById('targetModalBody');
-      tbody.innerHTML = allTargets.map(t => `
-        <tr>
-          <td class="p-2.5 font-bold">${t.petugas}</td>
-          <td class="p-2.5 font-mono">${t.idpel}</td>
-          <td class="p-2.5">${t.nama}</td>
-          <td class="p-2.5">${t.alamat}</td>
-          <td class="p-2.5">${t.tarif}/${t.daya}</td>
-          <td class="p-2.5 text-center"><button onclick="deleteTarget(${t.id})" class="text-rose-600 font-bold">Hapus</button></td>
-        </tr>
-      `).join('');
-      document.getElementById('modalTargets').classList.remove('hidden');
+
+      if (allTargets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Belum ada data target WO di Supabase.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = allTargets.map(t => {
+        const isDone = doneSet.has(String(t.idpel).trim());
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 font-mono font-extrabold text-slate-800">${t.petugas}</td>
+            <td class="p-3 font-mono font-bold">${t.idpel}</td>
+            <td class="p-3 font-bold">${t.nama}</td>
+            <td class="p-3 text-slate-600">${t.alamat}</td>
+            <td class="p-3 whitespace-nowrap">${t.tarif || '-'}/${t.daya || '-'}</td>
+            <td class="p-3 whitespace-nowrap">
+              ${isDone
+                ? '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-extrabold text-[10px]">✓ Selesai</span>'
+                : '<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-extrabold text-[10px]">⏳ Belum</span>'
+              }
+            </td>
+            <td class="p-3 text-center">
+              <button onclick="confirmDeleteTarget(${t.id}, '${String(t.idpel).replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px]">
+                Hapus
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
-    async function deleteTarget(id) {
-      if (!confirm('Hapus target WO ini?')) return;
-      await db.from('targets').delete().eq('id', id);
-      await loadAdminData();
-      openTargetModal();
+    function confirmDeleteTarget(id, idpel) {
+      askConfirm(
+        'Hapus Target WO?',
+        `Target untuk IDPEL ${idpel} akan dihapus permanen dari daftar tugas.`,
+        async () => {
+          try {
+            const { error } = await supabaseClient.from('targets').delete().eq('id', id);
+            if (error) throw error;
+            showToast('Target WO berhasil dihapus.', 'success');
+            await loadAdminData(false);
+            renderTargetModalTable();
+          } catch (err) {
+            showToast('Gagal menghapus target: ' + err.message, 'error');
+          }
+        }
+      );
     }
 
+    // 12. EXPORT REKAP KE EXCEL (.XLSX)
     function exportExcel() {
-      if (allResults.length === 0) return alert('Belum ada data hasil laporan untuk diunduh.');
-      const dataExport = allResults.map(r => ({
-        WAKTU: r.waktu,
-        PETUGAS: r.petugas,
-        IDPEL: r.idpel,
-        NAMA: r.nama,
-        ALAMAT: r.alamat,
-        TARIF: r.tarif,
-        DAYA: r.daya,
-        KETERANGAN: r.keterangan,
-        LINK_FOTO: r.foto_url
+      const sourceData = filteredResults.length > 0 ? filteredResults : allResults;
+      if (sourceData.length === 0) {
+        showToast('Belum ada data hasil laporan untuk diunduh.', 'warning');
+        return;
+      }
+
+      const dataExport = sourceData.map(r => ({
+        WAKTU: r.waktu || '-',
+        PETUGAS: r.petugas || '-',
+        IDPEL: r.idpel || '-',
+        NAMA: r.nama || '-',
+        ALAMAT: r.alamat || '-',
+        TARIF: r.tarif || '-',
+        DAYA: r.daya || '-',
+        KETERANGAN: r.keterangan || '-',
+        LINK_FOTO: r.foto_url || '-'
       }));
+
       const ws = XLSX.utils.json_to_sheet(dataExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Rekap_WO_PLN');
-      XLSX.writeFile(wb, `Rekap_WO_PLN_${new Date().toISOString().slice(0,10)}.xlsx`);
+      XLSX.writeFile(wb, `Rekap_WO_PLN_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      showToast(`Berhasil mengunduh ${dataExport.length} data rekap (.xlsx)!`, 'success');
     }
 
-    loadAdminData();
-    setInterval(loadAdminData, 15000);
+    // 13. INISIALISASI & AUTO-REFRESH SETIAP 15 DETIK
+    window.addEventListener('DOMContentLoaded', () => {
+      loadAdminData(false);
+      setInterval(() => loadAdminData(false), 15000);
+    });
   </script>
 </body>
 </html>
