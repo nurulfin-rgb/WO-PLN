@@ -307,7 +307,7 @@
       fPetugas.appendChild(opt);
     }
 
-    // 4. NOTIFIKASI TOAST
+    // 4. NOTIFIKASI TOAST (PENGGANTI ALERT)
     function showToast(message, type = 'info') {
       const container = document.getElementById('toastContainer');
       const colors = {
@@ -348,19 +348,13 @@
       modal.classList.remove('flex');
     }
 
-    // 6. LOAD DATA REAL-TIME DARI SUPABASE
+    // 6. LOAD DATA REAL-TIME DARI SUPABASE DENGAN HANDLE FETCH ERROR
     async function loadAdminData(notify = false) {
-      if (isSandboxPreview) {
-        document.getElementById('connStatus').textContent = '● Mode Pratinjau • Siap Deploy';
-        document.getElementById('connStatus').className = 'text-xs font-semibold text-amber-400';
-        allTargets = JSON.parse(localStorage.getItem('admin_demo_targets') || 'null') || [...FALLBACK_TARGETS];
-        allResults = JSON.parse(localStorage.getItem('admin_demo_results') || '[]');
-        updateDashboardStats();
-        renderAdminTable();
-        if (notify) showToast('Data pratinjau dimuat!', 'info');
-        return;
-      }
       try {
+        if (isSandboxPreview) {
+          throw new Error('Sandbox Preview Mode');
+        }
+
         const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
           supabaseClient.from('targets').select('*').order('id', { ascending: true }),
           supabaseClient.from('results').select('*').order('id', { ascending: false })
@@ -375,17 +369,34 @@
         allTargets = tData || [];
         allResults = rData || [];
 
+        try {
+          localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
+          localStorage.setItem('admin_cache_results', JSON.stringify(allResults));
+        } catch (e) {}
+
         updateDashboardStats();
         renderAdminTable();
-        if (notify) showToast('Data berhasil disinkronkan!', 'success');
+        if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
       } catch (err) {
-        document.getElementById('connStatus').textContent = '● Mode Offline / Cache';
-        document.getElementById('connStatus').className = 'text-xs font-semibold text-amber-400';
-        allTargets = JSON.parse(localStorage.getItem('admin_demo_targets') || 'null') || [...FALLBACK_TARGETS];
-        allResults = JSON.parse(localStorage.getItem('admin_demo_results') || '[]');
-        updateDashboardStats();
-        renderAdminTable();
-        if (notify) showToast('Menampilkan data cache lokal.', 'warning');
+        console.warn("Supabase Fetch Warning:", err.message);
+        
+        // Coba muat dari cache lokal jika fetch gagal
+        const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || 'null');
+        const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || 'null');
+
+        if (cachedT || cachedR || isSandboxPreview) {
+          allTargets = cachedT && cachedT.length > 0 ? cachedT : FALLBACK_TARGETS;
+          allResults = cachedR || [];
+          document.getElementById('connStatus').textContent = '● Mode Offline / Cache Lokal';
+          document.getElementById('connStatus').className = 'text-xs font-semibold text-amber-400';
+          updateDashboardStats();
+          renderAdminTable();
+          if (notify) showToast('Menggunakan data cache lokal.', 'warning');
+        } else {
+          document.getElementById('connStatus').textContent = '● Gagal Terhubung';
+          document.getElementById('connStatus').className = 'text-xs font-semibold text-rose-400';
+          if (notify) showToast('Gagal terhubung ke Supabase: ' + err.message, 'error');
+        }
       }
     }
 
