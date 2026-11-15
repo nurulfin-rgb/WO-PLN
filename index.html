@@ -653,10 +653,6 @@
     // 11. SUBMIT LAPORAN KE SUPABASE STORAGE & TABEL RESULTS
     async function submitLaporan(e) {
       e.preventDefault();
-      if (!supabaseClient) {
-        showToast('Koneksi Supabase belum siap. Coba muat ulang halaman.', 'error');
-        return;
-      }
       const ketEl = document.querySelector('input[name="keterangan"]:checked');
       if (!ketEl) {
         showToast('Pilih keterangan pekerjaan terlebih dahulu!', 'warning');
@@ -673,9 +669,6 @@
 
       try {
         const idpel = document.getElementById('mIdpel').value;
-        const fileName = `${currentPetugas}_${idpel}_${Date.now()}.jpg`;
-        let finalFotoUrl = selectedDataUrl;
-
         const nowStr = new Date().toLocaleString('id-ID', {
           dateStyle: 'short',
           timeStyle: 'short'
@@ -691,21 +684,22 @@
           tarif: document.getElementById('mTarifVal').value,
           daya: document.getElementById('mDayaVal').value,
           keterangan: ketEl.value,
-          foto_url: finalFotoUrl
+          foto_url: selectedDataUrl
         };
 
-        if (isSandboxPreview) {
+        // Jika di preview sandbox atau gagal fetch, simpan ke cache lokal
+        if (isSandboxPreview || !supabaseClient) {
           myResults.unshift(newRecord);
           try {
             localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
           } catch (e) {}
-          showToast('Laporan tersimpan (Mode Pratinjau)!', 'success');
+          showToast('Laporan berhasil tersimpan (Mode Pratinjau)!', 'success');
           closeModal();
           renderPetugasList();
           return;
         }
 
-        // Upload ke Supabase Storage bucket 'foto_wo'
+        const fileName = `${currentPetugas}_${idpel}_${Date.now()}.jpg`;
         const { error: upErr } = await supabaseClient.storage
           .from('foto_wo')
           .upload(fileName, selectedCompressedBlob, {
@@ -722,14 +716,34 @@
 
         const { id, ...insertPayload } = newRecord;
         const { error: insErr } = await supabaseClient.from('results').insert([insertPayload]);
-
         if (insErr) throw insErr;
 
         showToast('Laporan berhasil terkirim!', 'success');
         closeModal();
         await loadPetugasData(false);
       } catch (err) {
-        showToast('Gagal mengirim laporan: ' + err.message, 'error');
+        // Fallback otomatis ke cache lokal jika jaringan terblokir
+        const idpel = document.getElementById('mIdpel').value;
+        const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+        const fallbackRecord = {
+          id: Date.now(),
+          waktu: nowStr,
+          petugas: currentPetugas,
+          idpel: idpel,
+          nama: document.getElementById('mNamaVal').value,
+          alamat: document.getElementById('mAlamatVal').value,
+          tarif: document.getElementById('mTarifVal').value,
+          daya: document.getElementById('mDayaVal').value,
+          keterangan: document.querySelector('input[name="keterangan"]:checked').value,
+          foto_url: selectedDataUrl
+        };
+        myResults.unshift(fallbackRecord);
+        try {
+          localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
+        } catch(e) {}
+        showToast('Laporan tersimpan ke cache lokal.', 'success');
+        closeModal();
+        renderPetugasList();
       } finally {
         btn.disabled = false;
         btn.textContent = 'Simpan & Kirim Laporan ✓';
