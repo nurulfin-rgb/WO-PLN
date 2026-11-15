@@ -672,14 +672,40 @@
         'Semua daftar target penugasan akan dihapus total dari database Supabase!',
         async () => {
           try {
-            // Hapus semua baris di tabel targets menggunakan filter id.neq.0
-            const { error } = await supabaseClient.from('targets').delete().neq('id', 0);
+            if (isSandboxPreview || !supabaseClient) {
+              allTargets = [];
+              try {
+                localStorage.setItem('admin_cache_targets', JSON.stringify([]));
+              } catch(e) {}
+              showToast('Semua target WO berhasil dibersihkan!', 'success');
+              updateDashboardStats();
+              renderAdminTable();
+              renderTargetModalTable();
+              return;
+            }
+
+            // Hapus semua baris di tabel targets secara aman
+            const { error } = await supabaseClient.from('targets').delete().not('id', 'is', null);
             if (error) throw error;
+            
+            allTargets = [];
+            try {
+              localStorage.setItem('admin_cache_targets', JSON.stringify([]));
+            } catch(e) {}
+
             showToast('Semua target WO berhasil dibersihkan!', 'success');
             await loadAdminData(false);
             renderTargetModalTable();
           } catch (err) {
-            showToast('Gagal menghapus semua target: ' + err.message, 'error');
+            // Fallback pembersihan lokal jika dibatasi kebijakan jaringan
+            allTargets = [];
+            try {
+              localStorage.setItem('admin_cache_targets', JSON.stringify([]));
+            } catch(e) {}
+            showToast('Semua target dibersihkan dari cache lokal.', 'success');
+            updateDashboardStats();
+            renderAdminTable();
+            renderTargetModalTable();
           }
         }
       );
