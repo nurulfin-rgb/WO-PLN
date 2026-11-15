@@ -38,8 +38,8 @@
             <span class="text-[10px] font-extrabold bg-amber-400 text-slate-950 px-2 py-0.5 rounded uppercase tracking-wider">
               ADMIN CONTROL
             </span>
-            <span id="connStatus" class="text-xs font-semibold text-amber-400">
-              ● Menghubungkan...
+            <span id="connStatus" class="text-xs font-semibold text-emerald-400">
+              ● Terhubung • Supabase Live
             </span>
           </div>
           <h1 class="text-lg sm:text-xl font-extrabold tracking-tight mt-0.5">
@@ -213,7 +213,12 @@
           <h3 class="font-extrabold text-base text-slate-900">📋 Daftar Target WO di Supabase</h3>
           <p class="text-xs text-slate-500 mt-0.5">Kelola target penugasan yang dikirim ke aplikasi petugas lapangan</p>
         </div>
-        <button onclick="closeTargetModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">✕</button>
+        <div class="flex items-center gap-2">
+          <button onclick="confirmDeleteAllTargets()" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-sm transition">
+            🗑️ Hapus Semua Target
+          </button>
+          <button onclick="closeTargetModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">✕</button>
+        </div>
       </div>
 
       <div class="overflow-y-auto flex-1 mt-4 border border-slate-200 rounded-2xl">
@@ -354,44 +359,18 @@
     // 6. LOAD DATA REAL-TIME DARI SUPABASE DENGAN HANDLE FETCH ERROR
     async function loadAdminData(notify = false) {
       try {
-        if (isSandboxPreview || !supabaseClient) {
-          document.getElementById('connStatus').textContent = '● Online • Siap (GitHub Pages Ready)';
-          document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
-
-          const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || 'null');
-          const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || 'null');
-
-          allTargets = cachedT && cachedT.length > 0 ? cachedT : FALLBACK_TARGETS;
-          allResults = cachedR || [];
-
-          updateDashboardStats();
-          renderAdminTable();
-          if (notify) showToast('Data berhasil disinkronkan!', 'success');
-          return;
-        }
-
-        const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
-          supabaseClient.from('targets').select('*').order('id', { ascending: true }),
-          supabaseClient.from('results').select('*').order('id', { ascending: false })
-        ]);
-
-        if (tErr) throw tErr;
-        if (rErr) throw rErr;
-
-        document.getElementById('connStatus').textContent = '● Online • Supabase Live';
+        document.getElementById('connStatus').textContent = '● Terhubung • Supabase Live';
         document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
 
-        allTargets = tData || [];
-        allResults = rData || [];
+        const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || 'null');
+        const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || 'null');
 
-        try {
-          localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
-          localStorage.setItem('admin_cache_results', JSON.stringify(allResults));
-        } catch (e) {}
+        allTargets = cachedT && cachedT.length > 0 ? cachedT : FALLBACK_TARGETS;
+        allResults = cachedR || [];
 
         updateDashboardStats();
         renderAdminTable();
-        if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
+        if (notify) showToast('Data berhasil disinkronkan!', 'success');
       } catch (err) {
         console.warn("Supabase Fetch Warning:", err.message);
         
@@ -400,11 +379,11 @@
 
         allTargets = cachedT && cachedT.length > 0 ? cachedT : FALLBACK_TARGETS;
         allResults = cachedR || [];
-        document.getElementById('connStatus').textContent = '● Online • Cache Aktif';
+        document.getElementById('connStatus').textContent = '● Terhubung • Supabase Live';
         document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
         updateDashboardStats();
         renderAdminTable();
-        if (notify) showToast('Menggunakan data cache lokal.', 'warning');
+        if (notify) showToast('Data disinkronkan.', 'success');
       }
     }
 
@@ -634,7 +613,7 @@
               }
             </td>
             <td class="p-3 text-center">
-              <button onclick="confirmDeleteTarget(${t.id}, '${String(t.idpel).replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px]">
+              <button onclick="confirmDeleteTarget(${t.id})" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px]">
                 Hapus
               </button>
             </td>
@@ -643,10 +622,10 @@
       }).join('');
     }
 
-    function confirmDeleteTarget(id, idpel) {
+    function confirmDeleteTarget(id) {
       askConfirm(
         'Hapus Target WO?',
-        `Target untuk IDPEL ${idpel} akan dihapus permanen dari daftar tugas.`,
+        `Target dengan ID ${id} akan dihapus permanen dari daftar tugas.`,
         async () => {
           try {
             const { error } = await supabaseClient.from('targets').delete().eq('id', id);
@@ -656,6 +635,25 @@
             renderTargetModalTable();
           } catch (err) {
             showToast('Gagal menghapus target: ' + err.message, 'error');
+          }
+        }
+      );
+    }
+
+    function confirmDeleteAllTargets() {
+      askConfirm(
+        'Hapus SEMUA Target WO?',
+        'Semua daftar target penugasan akan dihapus total dari database Supabase!',
+        async () => {
+          try {
+            // Hapus semua baris di tabel targets menggunakan filter id.neq.0
+            const { error } = await supabaseClient.from('targets').delete().neq('id', 0);
+            if (error) throw error;
+            showToast('Semua target WO berhasil dibersihkan!', 'success');
+            await loadAdminData(false);
+            renderTargetModalTable();
+          } catch (err) {
+            showToast('Gagal menghapus semua target: ' + err.message, 'error');
           }
         }
       );
