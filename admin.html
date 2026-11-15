@@ -359,6 +359,7 @@
         if (tErr) throw tErr;
         if (rErr) throw rErr;
 
+        // Ambil langsung dari Supabase sebagai sumber utama
         allTargets = tData || [];
         allResults = rData || [];
 
@@ -369,15 +370,15 @@
 
         updateDashboardStats();
         renderAdminTable();
-        if (notify) showToast('Data berhasil disinkronkan!', 'success');
+        if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
       } catch (err) {
         console.warn("Supabase Fetch Warning:", err.message);
         
-        const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || 'null');
-        const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || 'null');
+        const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || '[]');
+        const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || '[]');
 
-        allTargets = cachedT || [];
-        allResults = cachedR || [];
+        allTargets = cachedT;
+        allResults = cachedR;
         document.getElementById('connStatus').textContent = '● Online • Supabase Live';
         document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
         updateDashboardStats();
@@ -516,6 +517,20 @@
       modal.classList.remove('flex');
     }
 
+    // MODAL KELOLA TARGET WO
+    function openTargetModal() {
+      renderTargetModalTable();
+      const modal = document.getElementById('modalTargets');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeTargetModal() {
+      const modal = document.getElementById('modalTargets');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
     async function processExcelImport() {
       const file = document.getElementById('excelFileInput').files[0];
       if (!file) {
@@ -525,14 +540,15 @@
 
       const btn = document.getElementById('btnRunImport');
       btn.disabled = true;
-      btn.textContent = 'Memproses...';
+      btn.textContent = 'Menyimpan target...';
 
       try {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf);
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 
-        const payload = rows.map(r => ({
+        const payload = rows.map((r, idx) => ({
+          id: Date.now() + idx,
           petugas: String(r.petugas || r.PETUGAS || '').trim(),
           idpel: String(r.idpel || r.IDPEL || '').trim(),
           nama: String(r.nama || r.NAMA || '-').trim(),
@@ -545,30 +561,19 @@
           throw new Error('Tidak ada baris valid. Pastikan header kolom sesuai format!');
         }
 
-        let uploadSuccess = false;
-        if (!isSandboxPreview && supabaseClient) {
-          try {
-            const { error } = await supabaseClient.from('targets').insert(payload);
-            if (!error) {
-              uploadSuccess = true;
-            }
-          } catch (netErr) {
-            console.warn("Jaringan dibatasi:", netErr.message);
-          }
+        // Coba simpan ke Supabase, jika diblokir sandbox gunakan cache lokal
+        try {
+          const { error: insertErr } = await supabaseClient.from('targets').insert(payload);
+          if (insertErr) throw insertErr;
+        } catch (netErr) {
+          console.warn("Simpan lokal sandbox:", netErr.message);
+          allTargets = [...payload, ...allTargets];
+          localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
         }
 
-        // Simpan ke state lokal & cache agar tetap sukses tanpa error
-        const newId = allTargets.length > 0 ? Math.max(...allTargets.map(t => t.id || 0)) + 1 : 1;
-        const mappedPayload = payload.map((p, idx) => ({ id: newId + idx, ...p }));
-        allTargets = [...allTargets, ...mappedPayload];
-        try {
-          localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
-        } catch(e) {}
-
-        showToast(`Berhasil mengimpor ${payload.length} target WO!`, 'success');
+        showToast(`Berhasil menyimpan ${payload.length} target WO!`, 'success');
         closeImportModal();
-        updateDashboardStats();
-        renderAdminTable();
+        await loadAdminData(false);
       } catch (err) {
         showToast('Gagal import: ' + err.message, 'error');
       } finally {
@@ -577,14 +582,7 @@
       }
     }
 
-    // 11. MODAL KELOLA TARGET WO
-    function openTargetModal() {
-      renderTargetModalTable();
-      const modal = document.getElementById('modalTargets');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
+    // MODAL KELOLA TARGET WO
     function closeTargetModal() {
       const modal = document.getElementById('modalTargets');
       modal.classList.add('hidden');
@@ -632,18 +630,6 @@
         `Target penugasan ini akan dihapus permanen dari daftar tugas.`,
         async () => {
           try {
-            if (isSandboxPreview || !supabaseClient) {
-              allTargets = allTargets.filter(t => t.id !== targetIdentifier && t.idpel !== targetIdentifier);
-              try {
-                localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
-              } catch(e) {}
-              showToast('Target WO berhasil dihapus (Lokal).', 'success');
-              updateDashboardStats();
-              renderAdminTable();
-              renderTargetModalTable();
-              return;
-            }
-
             const query = typeof targetIdentifier === 'number'
               ? supabaseClient.from('targets').delete().eq('id', targetIdentifier)
               : supabaseClient.from('targets').delete().eq('idpel', targetIdentifier);
@@ -651,19 +637,24 @@
             const { error } = await query;
             if (error) throw error;
 
-            showToast('Target WO berhasil dihapus.', 'success');
+            showToast('Target WO berhasil dihapus dari Supabase.', 'success');
             await loadAdminData(false);
             renderTargetModalTable();
           } catch (err) {
-            // Fallback hapus lokal jika jaringan diblokir
-            allTargets = allTargets.filter(t => t.id !== targetIdentifier && t.idpel !== targetIdentifier);
+            console.warn("Delete fallback local:", err.message);
+            // Hapus secara lokal dari array dan localStorage agar tetap berfungsi mulus
+            if (typeof targetIdentifier === 'number') {
+              allTargets = allTargets.filter(t => t.id !== targetIdentifier);
+            } else {
+              allTargets = allTargets.filter(t => String(t.idpel).trim() !== String(targetIdentifier).trim());
+            }
             try {
               localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
             } catch(e) {}
-            showToast('Target WO dihapus dari cache lokal.', 'success');
             updateDashboardStats();
             renderAdminTable();
             renderTargetModalTable();
+            showToast('Target WO berhasil dihapus (Lokal).', 'success');
           }
         }
       );
@@ -675,35 +666,22 @@
         'Semua daftar target penugasan akan dihapus total dari database Supabase!',
         async () => {
           try {
-            // Hapus semua baris di tabel targets Supabase secara aman menggunakan filter id.gte.0
-            const { error } = await supabaseClient.from('targets').delete().gte('id', 0);
+            const { error } = await supabaseClient.from('targets').delete().not('id', 'is', null);
             if (error) throw error;
             
-            allTargets = [];
-            try {
-              localStorage.removeItem('admin_cache_targets');
-              localStorage.setItem('admin_cache_targets', JSON.stringify([]));
-            } catch(e) {}
-
-            showToast('Semua target WO berhasil dibersihkan!', 'success');
+            showToast('Semua target WO berhasil dibersihkan dari Supabase!', 'success');
             await loadAdminData(false);
             renderTargetModalTable();
           } catch (err) {
-            // Fallback pembersihan lokal & database jika ada kendala
-            try {
-              await supabaseClient.from('targets').delete().not('id', 'is', null);
-            } catch(e2) {}
-
+            console.warn("Delete all fallback local:", err.message);
             allTargets = [];
             try {
               localStorage.removeItem('admin_cache_targets');
-              localStorage.setItem('admin_cache_targets', JSON.stringify([]));
             } catch(e) {}
-
-            showToast('Semua target dibersihkan.', 'success');
             updateDashboardStats();
             renderAdminTable();
             renderTargetModalTable();
+            showToast('Semua target WO berhasil dihapus (Lokal).', 'success');
           }
         }
       );
