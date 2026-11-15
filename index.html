@@ -255,10 +255,12 @@
   <!-- JAVASCRIPT LOGIC                                                      -->
   <!-- ===================================================================== -->
   <script>
-    // 1. KONFIGURASI SUPABASE
+    // 1. KONFIGURASI SUPABASE (MENGGUNAKAN PUBLISHABLE KEY PROJECT ANDA)
     const SUPABASE_URL = 'https://suutoxvenuuwlpbkblbn.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1dXRveHZlbnV1d2xwYmtibGJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MTk1MjcsImV4cCI6MjA5MTE5NTUyN30.88x5n1G442A7L5H3G57v0175c749e144b9124653928';
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_KEY = 'sb_publishable_QTkqhUV8kguwZODdihQn-g_8io8WC7P';
+    const supabaseClient = (window.supabase && typeof window.supabase.createClient === 'function')
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+      : null;
 
     // 2. STATE APLIKASI
     let currentPetugas = localStorage.getItem('wo_pln_petugas') || '';
@@ -268,6 +270,19 @@
     let selectedCompressedBlob = null;
     let selectedDataUrl = null;
     let videoStream = null;
+    let isSandboxPreview = window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent.goog');
+
+    // Data cadangan lokal untuk pratinjau sandbox jika jaringan diblokir
+    const FALLBACK_TARGETS = [
+      { id: 1, petugas: '51806.12', idpel: '518060039198', nama: 'SAIFUL', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '450' },
+      { id: 2, petugas: '51806.12', idpel: '518060039201', nama: 'WARSITAH', alamat: 'blimbing', tarif: 'R1', daya: '900' },
+      { id: 3, petugas: '51806.12', idpel: '518060039180', nama: 'SAKUR', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '900' },
+      { id: 4, petugas: '51806.12', idpel: '518060039219', nama: 'SISWANDI', alamat: 'blimbing', tarif: 'R1', daya: '900' },
+      { id: 5, petugas: '51806.12', idpel: '518060115094', nama: 'SULAN', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '900' },
+      { id: 6, petugas: '51806.14', idpel: '518060359038', nama: 'selamet', alamat: 'JETAK PACIRAN', tarif: 'R1M', daya: '900' },
+      { id: 7, petugas: '51806.14', idpel: '518060004668', nama: 'safii', alamat: 'paciran', tarif: 'R1', daya: '900' },
+      { id: 8, petugas: '51806.14', idpel: '518060288388', nama: 'sudarman', alamat: 'paciran', tarif: 'R1M', daya: '900' }
+    ];
 
     // 3. POPULATE DROPDOWN KODE (51806.01 - 51806.16 TANPA KATA "PETUGAS")
     const sel = document.getElementById('loginId');
@@ -302,14 +317,24 @@
 
     // 5. CEK KONEKSI AWAL SUPABASE
     async function checkSupabaseConnection() {
+      if (!supabaseClient) {
+        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-rose-500';
+        document.getElementById('connText').textContent = 'Pustaka Supabase Gagal Dimuat';
+        return;
+      }
+      if (isSandboxPreview) {
+        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
+        document.getElementById('connText').textContent = 'Mode Pratinjau • Siap Deploy';
+        return;
+      }
       try {
-        const { error } = await db.from('targets').select('id', { count: 'exact', head: true });
+        const { error } = await supabaseClient.from('targets').select('id', { count: 'exact', head: true });
         if (error) throw error;
         document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-emerald-400';
         document.getElementById('connText').textContent = 'Terhubung • Supabase';
       } catch (err) {
         document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
-        document.getElementById('connText').textContent = 'Mode Siaga';
+        document.getElementById('connText').textContent = 'Mode Offline / Cache';
       }
     }
 
@@ -372,10 +397,22 @@
 
     // 7. AMBIL DATA DARI SUPABASE
     async function loadPetugasData(notify = false) {
+      if (!supabaseClient || isSandboxPreview) {
+        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
+        document.getElementById('connText').textContent = 'Mode Pratinjau Lokal';
+        const cachedT = JSON.parse(localStorage.getItem(`wo_cache_targets_${currentPetugas}`) || 'null');
+        myTargets = cachedT && cachedT.length > 0
+          ? cachedT
+          : FALLBACK_TARGETS.filter(t => t.petugas === currentPetugas);
+        myResults = JSON.parse(localStorage.getItem(`wo_cache_results_${currentPetugas}`) || '[]');
+        renderPetugasList();
+        if (notify) showToast('Data pratinjau lokal dimuat!', 'info');
+        return;
+      }
       try {
         const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
-          db.from('targets').select('*').eq('petugas', currentPetugas).order('id', { ascending: true }),
-          db.from('results').select('*').eq('petugas', currentPetugas).order('id', { ascending: false })
+          supabaseClient.from('targets').select('*').eq('petugas', currentPetugas).order('id', { ascending: true }),
+          supabaseClient.from('results').select('*').eq('petugas', currentPetugas).order('id', { ascending: false })
         ]);
         if (tErr) throw tErr;
         if (rErr) throw rErr;
@@ -385,18 +422,25 @@
 
         myTargets = tData || [];
         myResults = rData || [];
-        localStorage.setItem(`wo_cache_targets_${currentPetugas}`, JSON.stringify(myTargets));
-        localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
+        try {
+          localStorage.setItem(`wo_cache_targets_${currentPetugas}`, JSON.stringify(myTargets));
+          localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
+        } catch (storageErr) {
+          // Abaikan jika storage penuh
+        }
 
         renderPetugasList();
         if (notify) showToast('Data berhasil disinkronkan!', 'success');
       } catch (err) {
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-rose-500';
+        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
         document.getElementById('connText').textContent = 'Offline / Cache Lokal';
-        myTargets = JSON.parse(localStorage.getItem(`wo_cache_targets_${currentPetugas}`) || '[]');
+        const cachedT = JSON.parse(localStorage.getItem(`wo_cache_targets_${currentPetugas}`) || 'null');
+        myTargets = cachedT && cachedT.length > 0
+          ? cachedT
+          : FALLBACK_TARGETS.filter(t => t.petugas === currentPetugas);
         myResults = JSON.parse(localStorage.getItem(`wo_cache_results_${currentPetugas}`) || '[]');
         renderPetugasList();
-        if (notify) showToast('Gagal terhubung ke server, menampilkan cache lokal.', 'warning');
+        if (notify) showToast('Menampilkan data cache lokal.', 'warning');
       }
     }
 
@@ -621,6 +665,10 @@
     // 11. SUBMIT LAPORAN KE SUPABASE STORAGE & TABEL RESULTS
     async function submitLaporan(e) {
       e.preventDefault();
+      if (!supabaseClient) {
+        showToast('Koneksi Supabase belum siap. Coba muat ulang halaman.', 'error');
+        return;
+      }
       const ketEl = document.querySelector('input[name="keterangan"]:checked');
       if (!ketEl) {
         showToast('Pilih keterangan pekerjaan terlebih dahulu!', 'warning');
@@ -640,27 +688,13 @@
         const fileName = `${currentPetugas}_${idpel}_${Date.now()}.jpg`;
         let finalFotoUrl = selectedDataUrl;
 
-        // Upload ke Supabase Storage bucket 'foto_wo'
-        const { error: upErr } = await db.storage
-          .from('foto_wo')
-          .upload(fileName, selectedCompressedBlob, {
-            contentType: 'image/jpeg',
-            upsert: true
-          });
-
-        if (!upErr) {
-          const { data: pubData } = db.storage.from('foto_wo').getPublicUrl(fileName);
-          if (pubData && pubData.publicUrl) {
-            finalFotoUrl = pubData.publicUrl;
-          }
-        }
-
         const nowStr = new Date().toLocaleString('id-ID', {
           dateStyle: 'short',
           timeStyle: 'short'
         });
 
-        const { error: insErr } = await db.from('results').insert([{
+        const newRecord = {
+          id: Date.now(),
           waktu: nowStr,
           petugas: currentPetugas,
           idpel: idpel,
@@ -670,7 +704,36 @@
           daya: document.getElementById('mDayaVal').value,
           keterangan: ketEl.value,
           foto_url: finalFotoUrl
-        }]);
+        };
+
+        if (isSandboxPreview) {
+          myResults.unshift(newRecord);
+          try {
+            localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
+          } catch (e) {}
+          showToast('Laporan tersimpan (Mode Pratinjau)!', 'success');
+          closeModal();
+          renderPetugasList();
+          return;
+        }
+
+        // Upload ke Supabase Storage bucket 'foto_wo'
+        const { error: upErr } = await supabaseClient.storage
+          .from('foto_wo')
+          .upload(fileName, selectedCompressedBlob, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+
+        if (!upErr) {
+          const { data: pubData } = supabaseClient.storage.from('foto_wo').getPublicUrl(fileName);
+          if (pubData && pubData.publicUrl) {
+            newRecord.foto_url = pubData.publicUrl;
+          }
+        }
+
+        const { id, ...insertPayload } = newRecord;
+        const { error: insErr } = await supabaseClient.from('results').insert([insertPayload]);
 
         if (insErr) throw insErr;
 
