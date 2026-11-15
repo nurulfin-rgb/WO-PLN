@@ -687,7 +687,6 @@
       };
 
       try {
-        // Coba kirim ke Supabase jika online/tersedia
         if (!isSandboxPreview && supabaseClient) {
           const fileName = `${currentPetugas}_${idpel}_${Date.now()}.jpg`;
           const { error: upErr } = await supabaseClient.storage
@@ -708,10 +707,11 @@
           await supabaseClient.from('results').insert([insertPayload]);
         }
       } catch (err) {
-        console.warn("Jaringan dibatasi, menggunakan penyimpanan lokal:", err.message);
+        // Abaikan error jaringan agar proses tetap sukses secara lokal
+        console.warn("Jaringan dibatasi:", err.message);
       }
 
-      // Selalu masukkan ke array hasil lokal dan cache agar langsung tampil sukses
+      // Selalu masukkan ke array hasil lokal dan cache agar sukses tanpa error
       myResults.unshift(newRecord);
       try {
         localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
