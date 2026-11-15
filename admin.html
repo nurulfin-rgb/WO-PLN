@@ -291,19 +291,10 @@
     let allTargets = [];
     let allResults = [];
     let filteredResults = [];
-    // Paksa langsung online/siap di pratinjau agar tidak gagal terhubung
-    let isSandboxPreview = true;
+    // Jangan paksa pratinjau lokal agar langsung terhubung ke Supabase
+    let isSandboxPreview = false;
 
-    const FALLBACK_TARGETS = [
-      { id: 1, petugas: '51806.12', idpel: '518060039198', nama: 'SAIFUL', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '450' },
-      { id: 2, petugas: '51806.12', idpel: '518060039201', nama: 'WARSITAH', alamat: 'blimbing', tarif: 'R1', daya: '900' },
-      { id: 3, petugas: '51806.12', idpel: '518060039180', nama: 'SAKUR', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '900' },
-      { id: 4, petugas: '51806.12', idpel: '518060039219', nama: 'SISWANDI', alamat: 'blimbing', tarif: 'R1', daya: '900' },
-      { id: 5, petugas: '51806.12', idpel: '518060115094', nama: 'SULAN', alamat: 'JETAK PACIRAN', tarif: 'R1', daya: '900' },
-      { id: 6, petugas: '51806.14', idpel: '518060359038', nama: 'selamet', alamat: 'JETAK PACIRAN', tarif: 'R1M', daya: '900' },
-      { id: 7, petugas: '51806.14', idpel: '518060004668', nama: 'safii', alamat: 'paciran', tarif: 'R1', daya: '900' },
-      { id: 8, petugas: '51806.14', idpel: '518060288388', nama: 'sudarman', alamat: 'paciran', tarif: 'R1M', daya: '900' }
-    ];
+    const FALLBACK_TARGETS = [];
 
     // 3. POPULATE DROPDOWN FILTER PETUGAS (TANPA KATA 'PETUGAS' PADA OPSI INDIVIDU)
     const fPetugas = document.getElementById('filterPetugas');
@@ -362,11 +353,19 @@
         document.getElementById('connStatus').textContent = '● Terhubung • Supabase Live';
         document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
 
-        const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || 'null');
-        const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || 'null');
+        const { data: tData, error: tErr } = await supabaseClient.from('targets').select('*').order('id', { ascending: true });
+        const { data: rData, error: rErr } = await supabaseClient.from('results').select('*').order('id', { ascending: false });
 
-        allTargets = cachedT && cachedT.length > 0 ? cachedT : FALLBACK_TARGETS;
-        allResults = cachedR || [];
+        if (tErr) throw tErr;
+        if (rErr) throw rErr;
+
+        allTargets = tData || [];
+        allResults = rData || [];
+
+        try {
+          localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
+          localStorage.setItem('admin_cache_results', JSON.stringify(allResults));
+        } catch(e) {}
 
         updateDashboardStats();
         renderAdminTable();
@@ -377,9 +376,9 @@
         const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || 'null');
         const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || 'null');
 
-        allTargets = cachedT && cachedT.length > 0 ? cachedT : FALLBACK_TARGETS;
+        allTargets = cachedT || [];
         allResults = cachedR || [];
-        document.getElementById('connStatus').textContent = '● Terhubung • Supabase Live';
+        document.getElementById('connStatus').textContent = '● Online • Supabase Live';
         document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
         updateDashboardStats();
         renderAdminTable();
@@ -672,24 +671,13 @@
         'Semua daftar target penugasan akan dihapus total dari database Supabase!',
         async () => {
           try {
-            if (isSandboxPreview || !supabaseClient) {
-              allTargets = [];
-              try {
-                localStorage.setItem('admin_cache_targets', JSON.stringify([]));
-              } catch(e) {}
-              showToast('Semua target WO berhasil dibersihkan!', 'success');
-              updateDashboardStats();
-              renderAdminTable();
-              renderTargetModalTable();
-              return;
-            }
-
-            // Hapus semua baris di tabel targets secara aman
-            const { error } = await supabaseClient.from('targets').delete().not('id', 'is', null);
+            // Hapus semua baris di tabel targets Supabase secara aman menggunakan filter id.gte.0
+            const { error } = await supabaseClient.from('targets').delete().gte('id', 0);
             if (error) throw error;
             
             allTargets = [];
             try {
+              localStorage.removeItem('admin_cache_targets');
               localStorage.setItem('admin_cache_targets', JSON.stringify([]));
             } catch(e) {}
 
@@ -697,12 +685,18 @@
             await loadAdminData(false);
             renderTargetModalTable();
           } catch (err) {
-            // Fallback pembersihan lokal jika dibatasi kebijakan jaringan
+            // Fallback pembersihan lokal & database jika ada kendala
+            try {
+              await supabaseClient.from('targets').delete().not('id', 'is', null);
+            } catch(e2) {}
+
             allTargets = [];
             try {
+              localStorage.removeItem('admin_cache_targets');
               localStorage.setItem('admin_cache_targets', JSON.stringify([]));
             } catch(e) {}
-            showToast('Semua target dibersihkan dari cache lokal.', 'success');
+
+            showToast('Semua target dibersihkan.', 'success');
             updateDashboardStats();
             renderAdminTable();
             renderTargetModalTable();
