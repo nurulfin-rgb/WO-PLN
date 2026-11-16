@@ -133,6 +133,18 @@
         </button>
       </div>
 
+      <!-- Filter RBM -->
+      <div>
+        <label for="filterRbm" class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">Pilih RBM</label>
+        <select id="filterRbm" onchange="setRbmFilter(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+          <option value="ALL">Semua RBM</option>
+          <option value="A">RBM A</option><option value="B">RBM B</option>
+          <option value="C">RBM C</option><option value="D">RBM D</option>
+          <option value="E">RBM E</option><option value="F">RBM F</option>
+          <option value="G">RBM G</option>
+        </select>
+      </div>
+
       <!-- Pencarian & Tombol Sync -->
       <div class="flex gap-2">
         <div class="relative flex-1">
@@ -179,6 +191,7 @@
         <input type="hidden" id="mAlamatVal" />
         <input type="hidden" id="mTarifVal" />
         <input type="hidden" id="mDayaVal" />
+        <input type="hidden" id="mRbmVal" />
 
         <!-- 1. PILIH KETERANGAN -->
         <div>
@@ -273,6 +286,7 @@
     let myTargets = [];
     let myResults = [];
     let statusFilter = 'ALL';
+    let rbmFilter = 'ALL';
     let selectedCompressedBlob = null;
     let selectedDataUrl = null;
     let videoStream = null;
@@ -474,6 +488,11 @@
       if (notify) showToast(`Data lokal ditampilkan. Supabase: ${reason}`, 'warning');
     }
 
+    function setRbmFilter(filter) {
+      rbmFilter = filter || 'ALL';
+      renderPetugasList();
+    }
+
     function setStatusFilter(filter) {
       statusFilter = filter;
       const map = { ALL: 'tabAll', BELUM: 'tabBelum', SELESAI: 'tabSelesai' };
@@ -493,20 +512,23 @@
       const doneMap = new Map();
       myResults.forEach(r => doneMap.set(String(r.idpel).trim(), r));
 
-      const total = myTargets.length;
-      const selesai = myTargets.filter(t => doneMap.has(String(t.idpel).trim())).length;
+      const rbmTargets = myTargets.filter(t =>
+        rbmFilter === 'ALL' || String(t.rbm || '').trim().toUpperCase() === rbmFilter
+      );
+      const total = rbmTargets.length;
+      const selesai = rbmTargets.filter(t => doneMap.has(String(t.idpel).trim())).length;
 
       document.getElementById('pStatTarget').textContent = total;
       document.getElementById('pStatSelesai').textContent = selesai;
       document.getElementById('pStatSisa').textContent = Math.max(0, total - selesai);
 
       const q = document.getElementById('searchTarget').value.toLowerCase().trim();
-      const filtered = myTargets.filter(t => {
+      const filtered = rbmTargets.filter(t => {
         const isDone = doneMap.has(String(t.idpel).trim());
         if (statusFilter === 'BELUM' && isDone) return false;
         if (statusFilter === 'SELESAI' && !isDone) return false;
         if (q) {
-          const hay = `${t.idpel} ${t.nama} ${t.alamat}`.toLowerCase();
+          const hay = `${t.idpel} ${t.nama} ${t.alamat} ${t.rbm || ''} ${t.tarif || ''} ${t.daya || ''}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -538,6 +560,9 @@
                 <h4 class="font-extrabold text-sm text-slate-900 mt-1.5 truncate">${item.nama}</h4>
                 <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">${item.alamat}</p>
                 <div class="flex flex-wrap gap-1.5 mt-2.5">
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">
+                    RBM: ${item.rbm || '-'}
+                  </span>
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                     Tarif: ${item.tarif || '-'}
                   </span>
@@ -575,9 +600,10 @@
       document.getElementById('mAlamatVal').value = item.alamat;
       document.getElementById('mTarifVal').value = item.tarif || '';
       document.getElementById('mDayaVal').value = item.daya || '';
+      document.getElementById('mRbmVal').value = item.rbm || '';
 
       document.getElementById('mNama').textContent = `${item.nama} (${item.idpel})`;
-      document.getElementById('mDetail').textContent = `${item.alamat} • ${item.tarif || '-'}/${item.daya || '-'} VA`;
+      document.getElementById('mDetail').textContent = `RBM ${item.rbm || '-'} • ${item.alamat} • ${item.tarif || '-'}/${item.daya || '-'} VA`;
 
       document.querySelectorAll('input[name="keterangan"]').forEach(r => r.checked = false);
       resetFoto();
@@ -824,6 +850,7 @@
           alamat: document.getElementById('mAlamatVal').value,
           tarif: document.getElementById('mTarifVal').value,
           daya: document.getElementById('mDayaVal').value,
+          rbm: document.getElementById('mRbmVal').value,
           keterangan: ketEl.value,
           foto_url: publicData.publicUrl
         };
