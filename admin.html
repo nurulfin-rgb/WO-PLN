@@ -482,9 +482,13 @@
 
     function updateDashboardStats() {
       const totalTarget = allTargets.length;
-      const doneKeys = new Set(allResults.map(r => `${resultMonth(r)}|${String(r.idpel || '').trim()}`));
+      const doneKeys = new Set(allResults.map(r =>
+        `${resultMonth(r)}|${String(r.petugas || '').trim()}|${String(r.idpel || '').trim()}`
+      ));
       const selesaiCount = totalTarget > 0
-        ? allTargets.filter(t => doneKeys.has(`${normalizeMonth(t.periode || t.period)}|${String(t.idpel || '').trim()}`)).length
+        ? allTargets.filter(t => doneKeys.has(
+            `${normalizeMonth(t.periode || t.period)}|${String(t.petugas || '').trim()}|${String(t.idpel || '').trim()}`
+          )).length
         : allResults.length;
       const belumCount = Math.max(0, totalTarget - selesaiCount);
       const persen = totalTarget > 0 ? Math.round((selesaiCount / totalTarget) * 100) : (allResults.length > 0 ? 100 : 0);
@@ -823,16 +827,17 @@
     }
 
     function resultMonth(row) {
-      // Periode target yang disimpan saat petugas mengerjakan selalu menjadi acuan utama.
+      // Periode target tersimpan eksplisit adalah acuan utama untuk laporan baru.
       const explicit = normalizeMonth(row.periode || row.period);
       if (explicit) return explicit;
 
-      // Kompatibilitas untuk laporan lama yang belum memiliki kolom periode.
+      // Laporan lama tanpa periode memakai bulan pada waktu laporan (dd/mm/yy atau dd/mm/yyyy).
       const raw = String(row.waktu || '').trim();
-      const m = raw.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{2,4})/);
+      const m = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
       if (m) {
         const year = Number(m[3].length === 2 ? `20${m[3]}` : m[3]);
-        return `${year}-${String(Number(m[2])).padStart(2,'0')}`;
+        const month = Number(m[2]);
+        if (month >= 1 && month <= 12) return `${year}-${String(month).padStart(2,'0')}`;
       }
       const d = new Date(raw);
       if (!Number.isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -843,7 +848,7 @@
       const period = document.getElementById('managementPeriod').value;
       return {
         period,
-        targets: allTargets.filter(t => String(t.periode || '') === period),
+        targets: allTargets.filter(t => normalizeMonth(t.periode || t.period) === period),
         results: allResults.filter(r => resultMonth(r) === period),
         untagged: allTargets.filter(t => !t.periode)
       };
