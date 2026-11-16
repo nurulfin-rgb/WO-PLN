@@ -797,7 +797,7 @@
           .from('foto_wo')
           .upload(fileName, selectedCompressedBlob, {
             contentType: 'image/jpeg',
-            upsert: true
+            upsert: false
           });
         if (uploadError) {
           throw new Error(`Upload foto gagal: ${uploadError.message}. Periksa bucket foto_wo dan Storage Policies.`);
