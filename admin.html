@@ -112,6 +112,15 @@
           <option value="ALL">Semua Petugas (51806.01 - 16)</option>
         </select>
 
+        <!-- Filter RBM -->
+        <select id="filterRbm" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+          <option value="ALL">Semua RBM</option>
+          <option value="A">RBM A</option><option value="B">RBM B</option>
+          <option value="C">RBM C</option><option value="D">RBM D</option>
+          <option value="E">RBM E</option><option value="F">RBM F</option>
+          <option value="G">RBM G</option>
+        </select>
+
         <!-- Filter Keterangan -->
         <select id="filterKet" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
           <option value="ALL">Semua Keterangan</option>
@@ -174,6 +183,7 @@
               <th class="py-3.5 px-4 whitespace-nowrap">PETUGAS</th>
               <th class="py-3.5 px-4 whitespace-nowrap">IDPEL</th>
               <th class="py-3.5 px-4 whitespace-nowrap">NAMA</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">RBM</th>
               <th class="py-3.5 px-4 whitespace-nowrap">ALAMAT</th>
               <th class="py-3.5 px-4 whitespace-nowrap">TARIF</th>
               <th class="py-3.5 px-4 whitespace-nowrap">DAYA</th>
@@ -207,7 +217,7 @@
         <div class="bg-sky-50 border border-sky-200 p-3.5 rounded-2xl text-xs text-sky-900 space-y-1.5">
           <div class="font-extrabold">Header Kolom Excel Wajib:</div>
           <div class="font-mono bg-white px-2.5 py-1.5 rounded-lg border border-sky-200 text-[11px] font-bold">
-            petugas | idpel | nama | alamat | tarif | daya
+            petugas | idpel | nama | rbm | alamat | tarif | daya
           </div>
           <p class="text-[11px] text-sky-700">Contoh kode petugas: <code class="font-mono font-bold">51806.01</code> s/d <code class="font-mono font-bold">51806.16</code></p>
         </div>
@@ -256,6 +266,7 @@
               <th class="p-3">Petugas</th>
               <th class="p-3">IDPEL</th>
               <th class="p-3">Nama Pelanggan</th>
+              <th class="p-3">RBM</th>
               <th class="p-3">Alamat</th>
               <th class="p-3">Tarif / Daya</th>
               <th class="p-3">Status</th>
@@ -474,14 +485,16 @@
     // 7. RENDER TABEL UTAMA ADMIN
     function renderAdminTable() {
       const fPetugas = document.getElementById('filterPetugas').value;
+      const fRbm = document.getElementById('filterRbm').value;
       const fKet = document.getElementById('filterKet').value;
       const q = document.getElementById('searchAdmin').value.toLowerCase().trim();
 
       filteredResults = allResults.filter(r => {
         if (fPetugas !== 'ALL' && String(r.petugas) !== fPetugas) return false;
+        if (fRbm !== 'ALL' && String(r.rbm || '').toUpperCase() !== fRbm) return false;
         if (fKet !== 'ALL' && String(r.keterangan) !== fKet) return false;
         if (q) {
-          const hay = `${r.idpel || ''} ${r.nama || ''} ${r.alamat || ''} ${r.petugas || ''}`.toLowerCase();
+          const hay = `${r.idpel || ''} ${r.nama || ''} ${r.rbm || ''} ${r.alamat || ''} ${r.petugas || ''}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -492,7 +505,7 @@
 
       if (filteredResults.length === 0) {
         tbody.innerHTML = `
-          <tr><td colspan="10" class="py-12 text-center text-slate-400">
+          <tr><td colspan="11" class="py-12 text-center text-slate-400">
             Belum ada data hasil pekerjaan lapangan yang sesuai filter.
           </td></tr>`;
         return;
@@ -504,7 +517,7 @@
           row.keterangan === 'TRANSAKSI PLN MOBILE' ? 'bg-sky-100 text-sky-800 border-sky-200' :
           'bg-emerald-100 text-emerald-800 border-emerald-200';
 
-        const caption = `${row.petugas || '-'} • ${row.idpel || '-'} • ${row.nama || '-'}`;
+        const caption = `${row.petugas || '-'} • RBM ${row.rbm || '-'} • ${row.idpel || '-'} • ${row.nama || '-'}`;
         const fotoButton = row.foto_url
           ? `<button type="button" data-action="foto"
                 data-url="${escapeHtml(row.foto_url)}"
@@ -518,6 +531,7 @@
             <td class="py-3 px-4 font-mono font-extrabold text-slate-900 whitespace-nowrap">${escapeHtml(row.petugas || '-')}</td>
             <td class="py-3 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">${escapeHtml(row.idpel || '-')}</td>
             <td class="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">${escapeHtml(row.nama || '-')}</td>
+            <td class="py-3 px-4 whitespace-nowrap"><span class="px-2 py-1 rounded-lg bg-violet-50 text-violet-700 font-extrabold">${escapeHtml(row.rbm || '-')}</span></td>
             <td class="py-3 px-4 text-slate-600 max-w-[220px] truncate" title="${escapeHtml(row.alamat || '')}">${escapeHtml(row.alamat || '-')}</td>
             <td class="py-3 px-4 whitespace-nowrap">${escapeHtml(row.tarif || '-')}</td>
             <td class="py-3 px-4 whitespace-nowrap">${escapeHtml(row.daya || '-')}</td>
@@ -621,13 +635,18 @@
           petugas: String(r.petugas ?? r.PETUGAS ?? '').trim(),
           idpel: String(r.idpel ?? r.IDPEL ?? '').trim(),
           nama: String(r.nama ?? r.NAMA ?? '-').trim(),
+          rbm: String(r.rbm ?? r.RBM ?? '').trim().toUpperCase(),
           alamat: String(r.alamat ?? r.ALAMAT ?? '-').trim(),
           tarif: String(r.tarif ?? r.TARIF ?? '-').trim(),
           daya: String(r.daya ?? r.DAYA ?? '-').trim()
         })).filter(x => x.petugas && x.idpel);
 
         if (dbPayload.length === 0) {
-          throw new Error('Tidak ada baris valid. Pastikan header kolom: petugas | idpel | nama | alamat | tarif | daya');
+          throw new Error('Tidak ada baris valid. Pastikan header kolom: petugas | idpel | nama | rbm | alamat | tarif | daya');
+        }
+        const invalidRbm = dbPayload.find(x => !['A','B','C','D','E','F','G'].includes(x.rbm));
+        if (invalidRbm) {
+          throw new Error(`Nilai RBM untuk IDPEL ${invalidRbm.idpel} harus A, B, C, D, E, F, atau G.`);
         }
 
         if (!supabaseClient) throw new Error('Supabase client belum siap');
@@ -669,7 +688,7 @@
       const tbody = document.getElementById('targetModalBody');
 
       if (allTargets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Belum ada target WO di database.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400">Belum ada target WO di database.</td></tr>`;
         return;
       }
 
@@ -680,6 +699,7 @@
             <td class="p-3 font-mono font-extrabold text-slate-900">${escapeHtml(t.petugas || '-')}</td>
             <td class="p-3 font-mono font-bold text-slate-700">${escapeHtml(t.idpel || '-')}</td>
             <td class="p-3 font-bold text-slate-900">${escapeHtml(t.nama || '-')}</td>
+            <td class="p-3"><span class="px-2 py-1 rounded-lg bg-violet-50 text-violet-700 font-extrabold">${escapeHtml(t.rbm || '-')}</span></td>
             <td class="p-3 text-slate-600">${escapeHtml(t.alamat || '-')}</td>
             <td class="p-3">${escapeHtml(t.tarif || '-')}/${escapeHtml(t.daya || '-')}</td>
             <td class="p-3">
@@ -792,8 +812,8 @@
       const { period, targets, results } = selectedMonthData();
       if (!period) return showToast('Pilih periode bulan terlebih dahulu.', 'warning');
       if (!targets.length && !results.length) return showToast('Tidak ada data pada periode ini untuk diarsipkan.', 'warning');
-      const targetRows = targets.map((t,i) => ({ NO:i+1, PERIODE:t.periode, PETUGAS:t.petugas, IDPEL:t.idpel, NAMA:t.nama, ALAMAT:t.alamat, TARIF:t.tarif, DAYA:t.daya }));
-      const resultRows = results.map((r,i) => ({ NO:i+1, WAKTU:r.waktu||'-', KODE_PETUGAS:r.petugas, IDPEL:r.idpel, NAMA_PELANGGAN:r.nama, ALAMAT:r.alamat, TARIF:r.tarif||'-', DAYA:r.daya||'-', KETERANGAN:r.keterangan, LINK_FOTO:r.foto_url||'-' }));
+      const targetRows = targets.map((t,i) => ({ NO:i+1, PERIODE:t.periode, PETUGAS:t.petugas, IDPEL:t.idpel, NAMA:t.nama, RBM:t.rbm||'-', ALAMAT:t.alamat, TARIF:t.tarif, DAYA:t.daya }));
+      const resultRows = results.map((r,i) => ({ NO:i+1, WAKTU:r.waktu||'-', KODE_PETUGAS:r.petugas, IDPEL:r.idpel, NAMA_PELANGGAN:r.nama, RBM:r.rbm||'-', ALAMAT:r.alamat, TARIF:r.tarif||'-', DAYA:r.daya||'-', KETERANGAN:r.keterangan, LINK_FOTO:r.foto_url||'-' }));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(targetRows), 'Target_WO');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resultRows), 'Hasil_Pekerjaan');
