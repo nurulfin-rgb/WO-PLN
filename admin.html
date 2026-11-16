@@ -62,6 +62,9 @@
         <button onclick="exportExcel()" class="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
           📤 Download Rekap (.xlsx)
         </button>
+        <button onclick="confirmDeleteAllResults()" class="px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
+          🗑️ Hapus Semua Hasil (<span id="btnResultCount">0</span>)
+        </button>
       </div>
     </div>
   </header>
@@ -409,6 +412,8 @@
 
         allTargets = tData;
         allResults = rData;
+        const resultCountButton = document.getElementById('btnResultCount');
+        if (resultCountButton) resultCountButton.textContent = allResults.length;
 
         updateDashboardStats();
         renderAdminTable();
@@ -709,6 +714,70 @@
             await loadAdminData(false);
           } catch (err) {
             showToast(`Gagal menghapus semua target: ${err.message}`, 'error');
+          }
+        }
+      );
+    }
+
+    // 11B. HAPUS SEMUA HASIL PEKERJAAN (TARGET TETAP DIPERTAHANKAN)
+    function getFotoStoragePath(publicUrl) {
+      if (!publicUrl) return null;
+      try {
+        const parsed = new URL(publicUrl);
+        const marker = '/storage/v1/object/public/foto_wo/';
+        const markerIndex = parsed.pathname.indexOf(marker);
+        if (markerIndex === -1) return null;
+        return decodeURIComponent(parsed.pathname.slice(markerIndex + marker.length));
+      } catch (err) {
+        console.warn('URL foto tidak dapat dibaca:', publicUrl, err);
+        return null;
+      }
+    }
+
+    function confirmDeleteAllResults() {
+      const total = allResults.length;
+      if (total === 0) {
+        showToast('Belum ada data hasil pekerjaan yang perlu dibersihkan.', 'warning');
+        return;
+      }
+
+      askConfirm(
+        'Hapus SEMUA Hasil Pekerjaan?',
+        `Anda akan menghapus permanen ${total} laporan pekerjaan dari tabel results beserta foto terkait di bucket foto_wo. Data target WO di tabel targets TIDAK akan dihapus. Tindakan ini tidak dapat dibatalkan. Lanjutkan hanya setelah rekap bulan ini sudah diunduh.`,
+        async () => {
+          try {
+            if (!supabaseClient) throw new Error('Supabase belum terhubung');
+
+            // Hapus file foto terlebih dahulu agar tidak meninggalkan file yatim di Storage.
+            const paths = [...new Set(allResults
+              .map(row => getFotoStoragePath(row.foto_url))
+              .filter(Boolean))];
+
+            for (let i = 0; i < paths.length; i += 100) {
+              const batch = paths.slice(i, i + 100);
+              const { error: storageError } = await supabaseClient.storage
+                .from('foto_wo')
+                .remove(batch);
+              if (storageError) {
+                throw new Error(`Gagal menghapus foto dari Storage: ${storageError.message}. Pastikan policy DELETE Storage untuk bucket foto_wo sudah dibuat. Data laporan belum dihapus.`);
+              }
+            }
+
+            const { error: deleteError } = await supabaseClient
+              .from('results')
+              .delete()
+              .not('id', 'is', null);
+
+            if (deleteError) throw deleteError;
+
+            allResults = [];
+            const resultCountButton = document.getElementById('btnResultCount');
+            if (resultCountButton) resultCountButton.textContent = '0';
+            showToast(`Berhasil menghapus ${total} laporan dan ${paths.length} foto. Data target tetap aman.`, 'success');
+            await loadAdminData(false);
+          } catch (err) {
+            console.error('Bulk delete results error:', err);
+            showToast(`Gagal membersihkan hasil pekerjaan: ${err.message || err}`, 'error');
           }
         }
       );
