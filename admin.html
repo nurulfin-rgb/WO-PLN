@@ -263,6 +263,7 @@
         <table class="w-full text-left text-xs border-collapse">
           <thead class="bg-slate-900 text-white sticky top-0 text-[11px] uppercase">
             <tr>
+              <th class="p-3">Periode</th>
               <th class="p-3">Petugas</th>
               <th class="p-3">IDPEL</th>
               <th class="p-3">Nama Pelanggan</th>
@@ -683,19 +684,35 @@
       modal.classList.remove('flex');
     }
 
+    function normalizeMonth(value) {
+      if (!value) return '';
+      const raw = String(value).trim();
+      if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+
     function renderTargetModalTable() {
-      const doneSet = new Set(allResults.map(r => String(r.idpel).trim()));
+      // Status selesai dicocokkan berdasarkan IDPEL DAN periode agar pekerjaan
+      // bulan sebelumnya tidak membuat target bulan berikutnya ikut dianggap selesai.
+      const doneSet = new Set(allResults.map(r => {
+        const period = normalizeMonth(r.periode || r.period) || resultMonth(r);
+        return `${period}|${String(r.idpel || '').trim()}`;
+      }));
       const tbody = document.getElementById('targetModalBody');
 
       if (allTargets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400">Belum ada target WO di database.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">Belum ada target WO di database.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = allTargets.map(t => {
-        const isDone = doneSet.has(String(t.idpel).trim());
+        const targetPeriod = normalizeMonth(t.periode || t.period);
+        const isDone = doneSet.has(`${targetPeriod}|${String(t.idpel || '').trim()}`);
+        const periodLabel = targetPeriod ? (() => { const [y,m] = targetPeriod.split('-'); return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }); })() : 'Belum diatur';
         return `
           <tr class="hover:bg-slate-50">
+            <td class="p-3 whitespace-nowrap"><span class="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 font-extrabold">${escapeHtml(periodLabel)}</span></td>
             <td class="p-3 font-mono font-extrabold text-slate-900">${escapeHtml(t.petugas || '-')}</td>
             <td class="p-3 font-mono font-bold text-slate-700">${escapeHtml(t.idpel || '-')}</td>
             <td class="p-3 font-bold text-slate-900">${escapeHtml(t.nama || '-')}</td>
