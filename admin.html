@@ -292,20 +292,10 @@
     let allResults = [];
     let filteredResults = [];
 
-    function isNetworkBlockedError(err) {
-      const msg = String(err?.message || err || '').toLowerCase();
-      return msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed') || !supabaseClient;
-    }
-
     function setConnectionBadge(mode) {
       const el = document.getElementById('connStatus');
-      if (mode === 'local') {
-        el.textContent = '● Mode Pratinjau Lokal';
-        el.className = 'text-xs font-semibold text-amber-400';
-      } else {
-        el.textContent = '● Online • Supabase Live';
-        el.className = 'text-xs font-semibold text-emerald-400';
-      }
+      el.textContent = '● Online • Supabase Live';
+      el.className = 'text-xs font-semibold text-emerald-400';
     }
 
     // 3. POPULATE DROPDOWN FILTER PETUGAS
@@ -379,39 +369,49 @@
 
         setConnectionBadge('live');
 
-        if ((tData && tData.length > 0) || cachedT.length === 0) {
+        // Jika Supabase kosong tapi di browser ada data lokal (8 data), otomatis dorong ke Supabase!
+        if ((!tData || tData.length === 0) && cachedT.length > 0) {
+          const cleanPayload = cachedT.map(({ id, ...rest }) => rest);
+          const { data: syncedT, error: syncErr } = await supabaseClient
+            .from('targets')
+            .insert(cleanPayload)
+            .select();
+
+          if (!syncErr && syncedT) {
+            allTargets = syncedT;
+            try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
+            showToast(`${syncedT.length} data lokal berhasil disinkronkan ke Supabase!`, 'success');
+          } else {
+            allTargets = cachedT;
+            if (syncErr) showToast(`Supabase terkoneksi, tapi ditolak RLS Policy: ${syncErr.message}`, 'warning');
+          }
+        } else {
           allTargets = tData || [];
           try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
-        } else {
-          allTargets = cachedT;
         }
 
-        if ((rData && rData.length > 0) || cachedR.length === 0) {
-          allResults = rData || [];
-          try { localStorage.setItem('admin_cache_results', JSON.stringify(allResults)); } catch (e) {}
-        } else {
-          allResults = cachedR;
-        }
+    // 6. LOAD DATA REAL-TIME DARI SUPABASE SECARA UTUH
+    async function loadAdminData(notify = false) {
+      try {
+        if (!supabaseClient) throw new Error('Supabase client tidak tersedia');
+
+        const { data: tData, error: tErr } = await supabaseClient.from('targets').select('*').order('id', { ascending: true });
+        const { data: rData, error: rErr } = await supabaseClient.from('results').select('*').order('id', { ascending: false });
+
+        if (tErr) throw tErr;
+        if (rErr) throw rErr;
+
+        setConnectionBadge('live');
+
+        allTargets = tData || [];
+        allResults = rData || [];
 
         updateDashboardStats();
         renderAdminTable();
         if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
       } catch (err) {
-        if (isNetworkBlockedError(err)) {
-          setConnectionBadge('local');
-          allTargets = cachedT;
-          allResults = cachedR;
-          updateDashboardStats();
-          renderAdminTable();
-          if (notify) showToast('Data dimuat dari penyimpanan lokal (Mode Pratinjau).', 'success');
-        } else {
-          setConnectionBadge('live');
-          allTargets = cachedT;
-          allResults = cachedR;
-          updateDashboardStats();
-          renderAdminTable();
-          showToast(`Error Supabase: ${err.message}`, 'error');
-        }
+        setConnectionBadge('live');
+        showToast(`Koneksi Supabase: ${err.message}`, 'error');
       }
     }
 
@@ -521,28 +521,18 @@
     function confirmDeleteResult(id, idpel) {
       askConfirm(
         'Hapus Hasil Laporan?',
-        `Laporan untuk IDPEL ${idpel} akan dihapus permanen dari daftar hasil.`,
+        `Laporan untuk IDPEL ${idpel} akan dihapus permanen dari Supabase.`,
         async () => {
           try {
-            if (!supabaseClient) throw new Error('Failed to fetch');
+            if (!supabaseClient) throw new Error('Supabase belum terhubung');
             const { error } = await supabaseClient.from('results').delete().eq('id', id);
             if (error) throw error;
 
             allResults = allResults.filter(r => r.id !== id);
-            try { localStorage.setItem('admin_cache_results', JSON.stringify(allResults)); } catch (e) {}
             showToast('Laporan berhasil dihapus dari Supabase.', 'success');
             await loadAdminData(false);
           } catch (err) {
-            if (isNetworkBlockedError(err)) {
-              setConnectionBadge('local');
-              allResults = allResults.filter(r => r.id !== id);
-              try { localStorage.setItem('admin_cache_results', JSON.stringify(allResults)); } catch (e) {}
-              updateDashboardStats();
-              renderAdminTable();
-              showToast('Laporan berhasil dihapus (Mode Pratinjau Lokal).', 'success');
-            } else {
-              showToast(`Gagal menghapus dari Supabase: ${err.message}`, 'error');
-            }
+            showToast(`Gagal menghapus dari Supabase: ${err.message}`, 'error');
           }
         }
       );
@@ -571,7 +561,7 @@
 
       const btn = document.getElementById('btnRunImport');
       btn.disabled = true;
-      btn.textContent = 'Mengupload...';
+      btn.textContent = 'Mengupload ke Supabase...';
 
       try {
         const buf = await file.arrayBuffer();
@@ -591,44 +581,20 @@
           throw new Error('Tidak ada baris valid. Pastikan header kolom: petugas | idpel | nama | alamat | tarif | daya');
         }
 
-        try {
-          if (!supabaseClient) throw new Error('Failed to fetch');
-          const { data: insertedData, error: insertErr } = await supabaseClient
-            .from('targets')
-            .insert(dbPayload)
-            .select();
+        if (!supabaseClient) throw new Error('Supabase client belum siap');
+        const { data: insertedData, error: insertErr } = await supabaseClient
+          .from('targets')
+          .insert(dbPayload)
+          .select();
 
-          if (insertErr) throw insertErr;
+        if (insertErr) throw insertErr;
 
-          setConnectionBadge('live');
-          const savedRows = insertedData && insertedData.length > 0 ? insertedData : dbPayload;
-          allTargets = [...allTargets, ...savedRows];
-          try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
-
-          showToast(`Berhasil import ${dbPayload.length} target ke Supabase!`, 'success');
-          closeImportModal();
-          await loadAdminData(false);
-        } catch (dbErr) {
-          if (isNetworkBlockedError(dbErr)) {
-            setConnectionBadge('local');
-            const baseId = allTargets.reduce((max, t) => (typeof t.id === 'number' && t.id > max ? t.id : max), 0);
-            const localRows = dbPayload.map((item, idx) => ({
-              id: baseId + idx + 1,
-              ...item
-            }));
-            allTargets = [...allTargets, ...localRows];
-            try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
-
-            updateDashboardStats();
-            renderAdminTable();
-            showToast(`Berhasil import ${localRows.length} target (Mode Pratinjau Lokal).`, 'success');
-            closeImportModal();
-          } else {
-            showToast(`Gagal import ke Supabase: ${dbErr.message} (Cek RLS Policy tabel targets)`, 'error');
-          }
-        }
+        setConnectionBadge('live');
+        showToast(`Berhasil import ${dbPayload.length} target ke Supabase!`, 'success');
+        closeImportModal();
+        await loadAdminData(false);
       } catch (err) {
-        showToast(err.message, 'error');
+        showToast(`Gagal import ke Supabase: ${err.message}`, 'error');
       } finally {
         btn.disabled = false;
         btn.textContent = 'Upload ke Supabase ➔';
@@ -687,22 +653,10 @@
     function confirmDeleteTarget(targetIdentifier) {
       askConfirm(
         'Hapus Target WO?',
-        'Target penugasan ini akan dihapus permanen dari daftar tugas.',
+        'Target penugasan ini akan dihapus permanen dari Supabase.',
         async () => {
-          const removeLocalItem = () => {
-            if (typeof targetIdentifier === 'number') {
-              allTargets = allTargets.filter(t => t.id !== targetIdentifier);
-            } else {
-              allTargets = allTargets.filter(t => String(t.idpel).trim() !== String(targetIdentifier).trim());
-            }
-            try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
-            updateDashboardStats();
-            renderAdminTable();
-            renderTargetModalTable();
-          };
-
           try {
-            if (!supabaseClient) throw new Error('Failed to fetch');
+            if (!supabaseClient) throw new Error('Supabase belum terhubung');
             const query = typeof targetIdentifier === 'number'
               ? supabaseClient.from('targets').delete().eq('id', targetIdentifier)
               : supabaseClient.from('targets').delete().eq('idpel', targetIdentifier);
@@ -711,16 +665,10 @@
             if (error) throw error;
 
             setConnectionBadge('live');
-            removeLocalItem();
             showToast('Target WO berhasil dihapus dari Supabase.', 'success');
+            await loadAdminData(false);
           } catch (err) {
-            if (isNetworkBlockedError(err)) {
-              setConnectionBadge('local');
-              removeLocalItem();
-              showToast('Target WO berhasil dihapus (Mode Pratinjau Lokal).', 'success');
-            } else {
-              showToast(`Gagal menghapus dari Supabase: ${err.message}`, 'error');
-            }
+            showToast(`Gagal menghapus dari Supabase: ${err.message}`, 'error');
           }
         }
       );
@@ -729,32 +677,18 @@
     function confirmDeleteAllTargets() {
       askConfirm(
         'Hapus SEMUA Target WO?',
-        'Semua daftar target penugasan akan dihapus total dari database Supabase dan penyimpanan lokal!',
+        'Semua daftar target penugasan akan dihapus total dari database Supabase!',
         async () => {
-          const clearAllLocal = () => {
-            allTargets = [];
-            try { localStorage.removeItem('admin_cache_targets'); } catch (e) {}
-            updateDashboardStats();
-            renderAdminTable();
-            renderTargetModalTable();
-          };
-
           try {
-            if (!supabaseClient) throw new Error('Failed to fetch');
+            if (!supabaseClient) throw new Error('Supabase belum terhubung');
             const { error } = await supabaseClient.from('targets').delete().not('id', 'is', null);
             if (error) throw error;
 
             setConnectionBadge('live');
-            clearAllLocal();
             showToast('Semua target WO berhasil dibersihkan dari Supabase!', 'success');
+            await loadAdminData(false);
           } catch (err) {
-            if (isNetworkBlockedError(err)) {
-              setConnectionBadge('local');
-              clearAllLocal();
-              showToast('Semua target WO berhasil dihapus (Mode Pratinjau Lokal).', 'success');
-            } else {
-              showToast(`Gagal menghapus semua target: ${err.message}`, 'error');
-            }
+            showToast(`Gagal menghapus semua target: ${err.message}`, 'error');
           }
         }
       );
