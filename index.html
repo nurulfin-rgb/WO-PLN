@@ -120,6 +120,14 @@
         </div>
       </div>
 
+      <!-- Filter Periode Target -->
+      <div>
+        <label for="filterPeriode" class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">Pilih Periode Target</label>
+        <select id="filterPeriode" onchange="setPeriodFilter(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+          <option value="">Memuat periode...</option>
+        </select>
+      </div>
+
       <!-- Filter Tab Status -->
       <div class="grid grid-cols-3 gap-1.5 bg-slate-200/70 p-1 rounded-xl">
         <button id="tabAll" onclick="setStatusFilter('ALL')" class="py-1.5 rounded-lg text-xs font-extrabold bg-white text-slate-900 shadow-sm transition">
@@ -455,6 +463,7 @@
 
         myTargets = tData || [];
         myResults = rData || [];
+        populatePeriodFilter();
         try {
           localStorage.setItem(`wo_cache_targets_${currentPetugas}`, JSON.stringify(myTargets));
           localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
@@ -484,8 +493,67 @@
         myTargets = FALLBACK_TARGETS.filter(t => t.petugas === currentPetugas);
         myResults = [];
       }
+      populatePeriodFilter();
       renderPetugasList();
       if (notify) showToast(`Data lokal ditampilkan. Supabase: ${reason}`, 'warning');
+    }
+
+    // Format periode standar database: YYYY-MM.
+    function normalizePeriod(value) {
+      if (value === null || value === undefined || value === '') return '';
+      const raw = String(value).trim();
+      if (/^\\d{4}-\\d{2}$/.test(raw)) return raw;
+      const m = raw.match(/^(\\d{1,2})[\\/-](\\d{4})$/);
+      if (m) return `${m[2]}-${m[1].padStart(2, '0')}`;
+      const d = new Date(raw);
+      if (!Number.isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
+      return '';
+    }
+
+    function getResultPeriod(result) {
+      // Prioritaskan periode target yang disimpan eksplisit.
+      const explicit = normalizePeriod(result.periode || result.period);
+      if (explicit) return explicit;
+      // Kompatibilitas laporan lama: ambil bulan dari kolom waktu.
+      const raw = String(result.waktu || '').trim();
+      const match = raw.match(/^(\\d{1,2})[\\/](\\d{1,2})[\\/](\\d{2,4})/);
+      if (match) {
+        const year = match[3].length === 2 ? `20${match[3]}` : match[3];
+        return `${year}-${match[2].padStart(2, '0')}`;
+      }
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? '' : `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2, '0')}`;
+    }
+
+    function getTargetPeriod(target) {
+      return normalizePeriod(target.periode || target.period);
+    }
+
+    function populatePeriodFilter() {
+      const select = document.getElementById('filterPeriode');
+      if (!select) return;
+      const periods = [...new Set(myTargets.map(getTargetPeriod).filter(Boolean))].sort().reverse();
+      if (!periods.length) {
+        select.innerHTML = '<option value="">Periode tidak ditemukan</option>';
+        selectedPeriod = '';
+        return;
+      }
+      const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2, '0')}`;
+      if (!periods.includes(selectedPeriod)) {
+        selectedPeriod = periods.includes(currentMonth) ? currentMonth : periods[0];
+      }
+      select.innerHTML = periods.map(period => {
+        const [year, month] = period.split('-');
+        const label = new Date(Number(year), Number(month)-1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        return `<option value="${period}" ${period === selectedPeriod ? 'selected' : ''}>${label}</option>`;
+      }).join('');
+      localStorage.setItem('wo_pln_periode', selectedPeriod);
+    }
+
+    function setPeriodFilter(period) {
+      selectedPeriod = normalizePeriod(period);
+      localStorage.setItem('wo_pln_periode', selectedPeriod);
+      renderPetugasList();
     }
 
     function setRbmFilter(filter) {
@@ -509,10 +577,12 @@
 
     // 8. RENDER DAFTAR TARGET WO
     function renderPetugasList() {
+      const periodTargets = myTargets.filter(t => getTargetPeriod(t) === selectedPeriod);
+      const periodResults = myResults.filter(r => getResultPeriod(r) === selectedPeriod);
       const doneMap = new Map();
-      myResults.forEach(r => doneMap.set(String(r.idpel).trim(), r));
+      periodResults.forEach(r => doneMap.set(String(r.idpel).trim(), r));
 
-      const rbmTargets = myTargets.filter(t =>
+      const rbmTargets = periodTargets.filter(t =>
         rbmFilter === 'ALL' || String(t.rbm || '').trim().toUpperCase() === rbmFilter
       );
       const total = rbmTargets.length;
@@ -539,7 +609,7 @@
         container.innerHTML = `
           <div class="bg-white rounded-2xl p-8 text-center text-xs text-slate-400 border border-slate-200">
             <div class="text-2xl mb-1.5">📋</div>
-            Tidak ada target WO yang sesuai untuk kode <strong class="font-mono text-slate-600">${currentPetugas}</strong>.
+            Tidak ada target WO untuk periode <strong>${selectedPeriod || '-'}</strong>, RBM, atau pencarian yang dipilih untuk kode <strong class="font-mono text-slate-600">${currentPetugas}</strong>.
           </div>
         `;
         return;
@@ -844,6 +914,7 @@
 
         const insertPayload = {
           waktu: nowStr,
+          periode: selectedPeriod,
           petugas: currentPetugas,
           idpel,
           nama: document.getElementById('mNamaVal').value,
