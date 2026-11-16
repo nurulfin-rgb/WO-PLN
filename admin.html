@@ -59,11 +59,8 @@
         <button onclick="openImportModal()" class="px-3.5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
           📥 Import Target (.xlsx)
         </button>
-        <button onclick="exportExcel()" class="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
-          📤 Download Rekap (.xlsx)
-        </button>
-        <button onclick="confirmDeleteAllResults()" class="px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
-          🗑️ Hapus Semua Hasil (<span id="btnResultCount">0</span>)
+        <button onclick="document.getElementById('monthlyManagement').scrollIntoView({behavior:'smooth'})" class="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
+          📅 Pengelolaan Data Bulanan
         </button>
       </div>
     </div>
@@ -131,7 +128,33 @@
       </div>
     </div>
 
-    <!-- 3. TABEL UTAMA: HASIL PEKERJAAN LAPANGAN -->
+    <!-- 3. PENGELOLAAN DATA BULANAN -->
+    <section id="monthlyManagement" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="font-extrabold text-base text-slate-900">📅 Pengelolaan Data Bulanan</h2>
+          <p class="text-xs text-slate-500 mt-1">Unduh arsip Excel, lalu hapus target, hasil pekerjaan, dan foto hanya untuk bulan yang dipilih.</p>
+        </div>
+        <span class="text-[10px] font-bold px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Pastikan Excel sudah tersimpan sebelum menghapus</span>
+      </div>
+      <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div class="w-full sm:w-56">
+          <label for="managementPeriod" class="block text-xs font-bold text-slate-700 mb-1.5">Pilih periode bulan</label>
+          <input id="managementPeriod" type="month" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm font-bold" onchange="renderMonthlySummary()" />
+        </div>
+        <button onclick="exportMonthlyExcel()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold">📥 Unduh Arsip Excel</button>
+        <button onclick="deleteMonthlyData()" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold">🗑️ Hapus Data Bulan Ini</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="rounded-xl bg-slate-50 border border-slate-200 p-3"><div class="text-[11px] text-slate-500 font-bold">TARGET BULAN TERPILIH</div><div id="monthlyTargetCount" class="text-2xl font-extrabold text-slate-900">0</div></div>
+        <div class="rounded-xl bg-emerald-50 border border-emerald-100 p-3"><div class="text-[11px] text-emerald-700 font-bold">HASIL PEKERJAAN</div><div id="monthlyResultCount" class="text-2xl font-extrabold text-emerald-700">0</div></div>
+        <div class="rounded-xl bg-sky-50 border border-sky-100 p-3"><div class="text-[11px] text-sky-700 font-bold">FOTO TERKAIT</div><div id="monthlyPhotoCount" class="text-2xl font-extrabold text-sky-700">0</div></div>
+      </div>
+      <div id="monthlyLegacyNotice" class="hidden rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"></div>
+      <div id="monthlyStatus" class="text-xs text-slate-500" aria-live="polite">Pilih bulan untuk melihat ringkasan data.</div>
+    </section>
+
+    <!-- 4. TABEL UTAMA: HASIL PEKERJAAN LAPANGAN -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
         <div class="flex items-center gap-2">
@@ -190,6 +213,11 @@
         </div>
 
         <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">Periode target ini</label>
+          <input type="month" id="importPeriod" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold" />
+          <p class="text-[10px] text-slate-500 mt-1">Periode ini dipakai saat tutup buku bulanan.</p>
+        </div>
+        <div>
           <label class="block text-xs font-bold text-slate-700 mb-1.5">Pilih File Excel / CSV</label>
           <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" class="w-full text-xs text-slate-600 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-extrabold file:bg-sky-600 file:text-white border border-slate-300 rounded-xl bg-slate-50 cursor-pointer" />
         </div>
@@ -217,9 +245,6 @@
           <p class="text-xs text-slate-500 mt-0.5">Kelola target penugasan yang dikirim ke aplikasi petugas lapangan</p>
         </div>
         <div class="flex items-center gap-2">
-          <button onclick="confirmDeleteAllTargets()" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-sm transition">
-            🗑️ Hapus Semua Target
-          </button>
           <button onclick="closeTargetModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">✕</button>
         </div>
       </div>
@@ -417,6 +442,7 @@
 
         updateDashboardStats();
         renderAdminTable();
+        if (document.getElementById('managementPeriod')) renderMonthlySummary();
         setConnectionBadge('live');
         if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
       } catch (err) {
@@ -588,7 +614,10 @@
         const wb = XLSX.read(buf);
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
 
+        const importPeriod = document.getElementById('importPeriod').value;
+        if (!/^\d{4}-\d{2}$/.test(importPeriod)) throw new Error('Pilih periode bulan untuk target yang akan diimport.');
         const dbPayload = rows.map(r => ({
+          periode: importPeriod,
           petugas: String(r.petugas ?? r.PETUGAS ?? '').trim(),
           idpel: String(r.idpel ?? r.IDPEL ?? '').trim(),
           nama: String(r.nama ?? r.NAMA ?? '-').trim(),
@@ -699,6 +728,116 @@
       );
     }
 
+    // 11A. TUTUP BUKU BULANAN
+    function currentMonthValue() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    function resultMonth(row) {
+      const raw = String(row.waktu || '').trim();
+      // Format dari aplikasi petugas: 16/11/26, 21.43 atau 16/11/2026, 21.43
+      const m = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      if (m) {
+        const year = Number(m[3].length === 2 ? `20${m[3]}` : m[3]);
+        return `${year}-${String(Number(m[2])).padStart(2,'0')}`;
+      }
+      const d = new Date(raw);
+      if (!Number.isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      return null;
+    }
+
+    function selectedMonthData() {
+      const period = document.getElementById('managementPeriod').value;
+      return {
+        period,
+        targets: allTargets.filter(t => String(t.periode || '') === period),
+        results: allResults.filter(r => resultMonth(r) === period),
+        untagged: allTargets.filter(t => !t.periode)
+      };
+    }
+
+    function renderMonthlySummary() {
+      const { period, targets, results, untagged } = selectedMonthData();
+      const paths = [...new Set(results.map(r => getFotoStoragePath(r.foto_url)).filter(Boolean))];
+      document.getElementById('monthlyTargetCount').textContent = targets.length;
+      document.getElementById('monthlyResultCount').textContent = results.length;
+      document.getElementById('monthlyPhotoCount').textContent = paths.length;
+      const legacy = document.getElementById('monthlyLegacyNotice');
+      if (untagged.length) {
+        legacy.classList.remove('hidden');
+        legacy.innerHTML = `<div class="font-extrabold mb-1">Ada ${untagged.length} target lama yang belum memiliki periode.</div><p>Target ini tidak akan ikut dihapus sampai diberi periode. Jika semua target tanpa periode memang milik bulan ${escapeHtml(period || '-')} pilih tombol berikut.</p><button onclick="tagLegacyTargets()" class="mt-2 px-3 py-2 rounded-lg bg-amber-600 text-white font-bold">Tandai ${untagged.length} target lama ke ${escapeHtml(period || 'bulan terpilih')}</button>`;
+      } else {
+        legacy.classList.add('hidden'); legacy.textContent = '';
+      }
+      document.getElementById('monthlyStatus').textContent = period
+        ? `Periode ${period}: ${targets.length} target, ${results.length} hasil, ${paths.length} foto. Data hasil dihitung dari kolom waktu laporan.`
+        : 'Pilih bulan untuk melihat ringkasan data.';
+    }
+
+    async function tagLegacyTargets() {
+      const { period, untagged } = selectedMonthData();
+      if (!period || !untagged.length) return;
+      askConfirm('Tandai target lama?', `Semua ${untagged.length} target yang belum memiliki periode akan diberi periode ${period}. Pastikan semua target tersebut memang milik bulan ini.`, async () => {
+        try {
+          const { error } = await supabaseClient.from('targets').update({ periode: period }).is('periode', null);
+          if (error) throw error;
+          await loadAdminData(false);
+          showToast(`Berhasil memberi periode ${period} pada target lama.`, 'success');
+        } catch (err) { showToast(`Gagal memberi periode: ${err.message}`, 'error'); }
+      });
+    }
+
+    function exportMonthlyExcel() {
+      const { period, targets, results } = selectedMonthData();
+      if (!period) return showToast('Pilih periode bulan terlebih dahulu.', 'warning');
+      if (!targets.length && !results.length) return showToast('Tidak ada data pada periode ini untuk diarsipkan.', 'warning');
+      const targetRows = targets.map((t,i) => ({ NO:i+1, PERIODE:t.periode, PETUGAS:t.petugas, IDPEL:t.idpel, NAMA:t.nama, ALAMAT:t.alamat, TARIF:t.tarif, DAYA:t.daya }));
+      const resultRows = results.map((r,i) => ({ NO:i+1, WAKTU:r.waktu||'-', KODE_PETUGAS:r.petugas, IDPEL:r.idpel, NAMA_PELANGGAN:r.nama, ALAMAT:r.alamat, TARIF:r.tarif||'-', DAYA:r.daya||'-', KETERANGAN:r.keterangan, LINK_FOTO:r.foto_url||'-' }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(targetRows), 'Target_WO');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resultRows), 'Hasil_Pekerjaan');
+      XLSX.writeFile(wb, `Arsip_WO_PLN_${period}.xlsx`);
+      document.getElementById('monthlyStatus').textContent = `Arsip ${period} berhasil dibuat: ${targets.length} target dan ${results.length} hasil pekerjaan.`;
+      showToast(`Arsip Excel ${period} berhasil diunduh. Periksa file sebelum menghapus data.`, 'success');
+    }
+
+    async function deleteMonthlyData() {
+      const { period, targets, results } = selectedMonthData();
+      if (!period) return showToast('Pilih periode bulan terlebih dahulu.', 'warning');
+      if (!targets.length && !results.length) return showToast('Tidak ada target atau hasil untuk periode ini.', 'warning');
+      const paths = [...new Set(results.map(r => getFotoStoragePath(r.foto_url)).filter(Boolean))];
+      const ids = results.map(r => r.id).filter(id => id !== undefined && id !== null);
+      if (ids.length !== results.length) return showToast('Ada laporan tanpa ID database. Penghapusan dibatalkan demi keamanan.', 'error');
+      askConfirm('HAPUS DATA BULANAN SECARA PERMANEN?', `Periode ${period}: ${targets.length} target, ${results.length} laporan, dan ${paths.length} foto akan dihapus dari Supabase Database dan Storage. Data bulan lain tidak ditargetkan. Tindakan ini tidak dapat dibatalkan. Pastikan arsip Excel sudah diunduh dan dibuka.`, async () => {
+        try {
+          if (!supabaseClient) throw new Error('Supabase belum terhubung');
+          // Foto dihapus lebih dahulu; jika policy DELETE belum benar, data tabel tetap dipertahankan.
+          for (let i=0; i<paths.length; i+=100) {
+            const { error } = await supabaseClient.storage.from('foto_wo').remove(paths.slice(i,i+100));
+            if (error) throw new Error(`Penghapusan foto gagal: ${error.message}. Periksa policy DELETE bucket foto_wo. Data tabel belum dihapus.`);
+          }
+          for (let i=0; i<ids.length; i+=500) {
+            const { error } = await supabaseClient.from('results').delete().in('id', ids.slice(i,i+500));
+            if (error) throw new Error(`Foto mungkin sudah terhapus, tetapi penghapusan laporan gagal: ${error.message}`);
+          }
+          if (targets.length) {
+            const { error } = await supabaseClient.from('targets').delete().eq('periode', period);
+            if (error) throw new Error(`Hasil pekerjaan sudah diproses, tetapi penghapusan target gagal: ${error.message}`);
+          }
+          await loadAdminData(false);
+          renderMonthlySummary();
+          document.getElementById('monthlyStatus').textContent = `Selesai: ${targets.length} target, ${results.length} laporan, dan ${paths.length} foto untuk periode ${period} telah dihapus.`;
+          showToast(`Data periode ${period} berhasil dibersihkan dari Supabase.`, 'success');
+        } catch (err) {
+          console.error('Monthly cleanup error:', err);
+          showToast(`Penghapusan bulanan tidak tuntas: ${err.message || err}`, 'error');
+          await loadAdminData(false);
+          renderMonthlySummary();
+        }
+      });
+    }
+
     function confirmDeleteAllTargets() {
       askConfirm(
         'Hapus SEMUA Target WO?',
@@ -783,33 +922,7 @@
       );
     }
 
-    // 12. EXPORT REKAP KE EXCEL (.XLSX)
-    function exportExcel() {
-      if (filteredResults.length === 0) {
-        showToast('Tidak ada data hasil laporan untuk diexport!', 'warning');
-        return;
-      }
-
-      const dataRows = filteredResults.map((r, idx) => ({
-        NO: idx + 1,
-        WAKTU: r.waktu || '-',
-        KODE_PETUGAS: r.petugas,
-        IDPEL: r.idpel,
-        NAMA_PELANGGAN: r.nama,
-        ALAMAT: r.alamat,
-        TARIF: r.tarif || '-',
-        DAYA: r.daya || '-',
-        KETERANGAN: r.keterangan,
-        LINK_FOTO: r.foto_url || '-'
-      }));
-
-      const ws = XLSX.utils.json_to_sheet(dataRows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Rekap_WO_PLN');
-      const dateTag = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `Rekap_Hasil_WO_PLN_${dateTag}.xlsx`);
-      showToast('File Excel rekap berhasil didownload!', 'success');
-    }
+    // Export utama dilakukan melalui Pengelolaan Data Bulanan.
 
     // 13. INISIALISASI & AUTO-REFRESH SETIAP 15 DETIK
     window.addEventListener('DOMContentLoaded', () => {
@@ -818,6 +931,9 @@
         showToast('Konfigurasi Supabase belum siap. Periksa URL dan publishable key.', 'error');
         return;
       }
+      const month = currentMonthValue();
+      document.getElementById('managementPeriod').value = month;
+      document.getElementById('importPeriod').value = month;
       loadAdminData(false);
       setInterval(() => loadAdminData(false), 15000);
     });
