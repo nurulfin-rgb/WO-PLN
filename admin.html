@@ -107,6 +107,11 @@
     <!-- 2. BAR FILTER & PENCARIAN -->
     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
       <div class="flex flex-wrap items-center gap-3">
+        <!-- Filter Periode Riwayat -->
+        <select id="filterPeriod" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+          <option value="ALL">Semua Periode</option>
+        </select>
+
         <!-- Filter Petugas -->
         <select id="filterPetugas" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
           <option value="ALL">Semua Petugas (51806.01 - 16)</option>
@@ -180,6 +185,7 @@
           <thead>
             <tr class="bg-slate-950 text-white text-[11px] uppercase tracking-wider">
               <th class="py-3.5 px-4 whitespace-nowrap">WAKTU</th>
+              <th class="py-3.5 px-4 whitespace-nowrap">PERIODE</th>
               <th class="py-3.5 px-4 whitespace-nowrap">PETUGAS</th>
               <th class="py-3.5 px-4 whitespace-nowrap">IDPEL</th>
               <th class="py-3.5 px-4 whitespace-nowrap">NAMA</th>
@@ -194,7 +200,7 @@
           </thead>
           <tbody id="adminTableBody" class="divide-y divide-slate-100 text-xs">
             <tr>
-              <td colspan="10" class="py-12 text-center text-slate-400">Memuat data...</td>
+              <td colspan="12" class="py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
           </tbody>
         </table>
@@ -259,7 +265,13 @@
         </div>
       </div>
 
-      <div class="overflow-y-auto flex-1 mt-4 border border-slate-200 rounded-2xl">
+      <div class="mt-3">
+        <label for="targetPeriodFilter" class="block text-xs font-bold text-slate-600 mb-1">Tampilkan target periode</label>
+        <select id="targetPeriodFilter" onchange="renderTargetModalTable()" class="w-full sm:w-64 px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold">
+          <option value="ALL">Semua Periode</option>
+        </select>
+      </div>
+      <div class="overflow-y-auto flex-1 mt-3 border border-slate-200 rounded-2xl">
         <table class="w-full text-left text-xs border-collapse">
           <thead class="bg-slate-900 text-white sticky top-0 text-[11px] uppercase">
             <tr>
@@ -453,6 +465,8 @@
         if (resultCountButton) resultCountButton.textContent = allResults.length;
 
         updateDashboardStats();
+        populateResultPeriodFilter();
+        populateTargetPeriodFilter();
         renderAdminTable();
         if (document.getElementById('managementPeriod')) renderMonthlySummary();
         setConnectionBadge('live');
@@ -468,9 +482,9 @@
 
     function updateDashboardStats() {
       const totalTarget = allTargets.length;
-      const doneIdpels = new Set(allResults.map(r => String(r.idpel).trim()));
+      const doneKeys = new Set(allResults.map(r => `${resultMonth(r)}|${String(r.idpel || '').trim()}`));
       const selesaiCount = totalTarget > 0
-        ? allTargets.filter(t => doneIdpels.has(String(t.idpel).trim())).length
+        ? allTargets.filter(t => doneKeys.has(`${normalizeMonth(t.periode || t.period)}|${String(t.idpel || '').trim()}`)).length
         : allResults.length;
       const belumCount = Math.max(0, totalTarget - selesaiCount);
       const persen = totalTarget > 0 ? Math.round((selesaiCount / totalTarget) * 100) : (allResults.length > 0 ? 100 : 0);
@@ -484,13 +498,31 @@
     }
 
     // 7. RENDER TABEL UTAMA ADMIN
+    function populateResultPeriodFilter() {
+      const select = document.getElementById('filterPeriod');
+      if (!select) return;
+      const current = select.value || 'ALL';
+      const periods = [...new Set([
+        ...allTargets.map(t => normalizeMonth(t.periode || t.period)),
+        ...allResults.map(r => resultMonth(r))
+      ].filter(Boolean))].sort().reverse();
+      select.innerHTML = '<option value="ALL">Semua Periode</option>' + periods.map(period => {
+        const [y,m] = period.split('-');
+        const label = new Date(Number(y), Number(m)-1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        return `<option value="${period}">${escapeHtml(label)}</option>`;
+      }).join('');
+      select.value = periods.includes(current) ? current : 'ALL';
+    }
+
     function renderAdminTable() {
+      const fPeriod = document.getElementById('filterPeriod')?.value || 'ALL';
       const fPetugas = document.getElementById('filterPetugas').value;
       const fRbm = document.getElementById('filterRbm').value;
       const fKet = document.getElementById('filterKet').value;
       const q = document.getElementById('searchAdmin').value.toLowerCase().trim();
 
       filteredResults = allResults.filter(r => {
+        if (fPeriod !== 'ALL' && resultMonth(r) !== fPeriod) return false;
         if (fPetugas !== 'ALL' && String(r.petugas) !== fPetugas) return false;
         if (fRbm !== 'ALL' && String(r.rbm || '').toUpperCase() !== fRbm) return false;
         if (fKet !== 'ALL' && String(r.keterangan) !== fKet) return false;
@@ -506,7 +538,7 @@
 
       if (filteredResults.length === 0) {
         tbody.innerHTML = `
-          <tr><td colspan="11" class="py-12 text-center text-slate-400">
+          <tr><td colspan="12" class="py-12 text-center text-slate-400">
             Belum ada data hasil pekerjaan lapangan yang sesuai filter.
           </td></tr>`;
         return;
@@ -529,6 +561,7 @@
         return `
           <tr class="hover:bg-slate-50/90 transition">
             <td class="py-3 px-4 text-slate-500 whitespace-nowrap">${escapeHtml(row.waktu || '-')}</td>
+            <td class="py-3 px-4 whitespace-nowrap"><span class="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 font-extrabold">${escapeHtml(resultMonth(row) || 'Tidak diketahui')}</span></td>
             <td class="py-3 px-4 font-mono font-extrabold text-slate-900 whitespace-nowrap">${escapeHtml(row.petugas || '-')}</td>
             <td class="py-3 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">${escapeHtml(row.idpel || '-')}</td>
             <td class="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">${escapeHtml(row.nama || '-')}</td>
@@ -672,6 +705,7 @@
 
     // 11. MODAL KELOLA TARGET WO
     function openTargetModal() {
+      populateTargetPeriodFilter();
       renderTargetModalTable();
       const modal = document.getElementById('modalTargets');
       modal.classList.remove('hidden');
@@ -692,6 +726,19 @@
       return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     }
 
+    function populateTargetPeriodFilter() {
+      const select = document.getElementById('targetPeriodFilter');
+      if (!select) return;
+      const current = select.value || 'ALL';
+      const periods = [...new Set(allTargets.map(t => normalizeMonth(t.periode || t.period)).filter(Boolean))].sort().reverse();
+      select.innerHTML = '<option value="ALL">Semua Periode</option>' + periods.map(period => {
+        const [y,m] = period.split('-');
+        const label = new Date(Number(y), Number(m)-1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        return `<option value="${period}">${escapeHtml(label)}</option>`;
+      }).join('');
+      select.value = periods.includes(current) ? current : 'ALL';
+    }
+
     function renderTargetModalTable() {
       // Status selesai dicocokkan berdasarkan IDPEL DAN periode agar pekerjaan
       // bulan sebelumnya tidak membuat target bulan berikutnya ikut dianggap selesai.
@@ -700,13 +747,17 @@
         return `${period}|${String(r.idpel || '').trim()}`;
       }));
       const tbody = document.getElementById('targetModalBody');
+      const selected = document.getElementById('targetPeriodFilter')?.value || 'ALL';
+      const visibleTargets = selected === 'ALL'
+        ? allTargets
+        : allTargets.filter(t => normalizeMonth(t.periode || t.period) === selected);
 
-      if (allTargets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">Belum ada target WO di database.</td></tr>`;
+      if (visibleTargets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">Tidak ada target pada periode yang dipilih.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = allTargets.map(t => {
+      tbody.innerHTML = visibleTargets.map(t => {
         const targetPeriod = normalizeMonth(t.periode || t.period);
         const isDone = doneSet.has(`${targetPeriod}|${String(t.idpel || '').trim()}`);
         const periodLabel = targetPeriod ? (() => { const [y,m] = targetPeriod.split('-'); return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }); })() : 'Belum diatur';
@@ -772,16 +823,20 @@
     }
 
     function resultMonth(row) {
+      // Periode target yang disimpan saat petugas mengerjakan selalu menjadi acuan utama.
+      const explicit = normalizeMonth(row.periode || row.period);
+      if (explicit) return explicit;
+
+      // Kompatibilitas untuk laporan lama yang belum memiliki kolom periode.
       const raw = String(row.waktu || '').trim();
-      // Format dari aplikasi petugas: 16/11/26, 21.43 atau 16/11/2026, 21.43
-      const m = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      const m = raw.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{2,4})/);
       if (m) {
         const year = Number(m[3].length === 2 ? `20${m[3]}` : m[3]);
         return `${year}-${String(Number(m[2])).padStart(2,'0')}`;
       }
       const d = new Date(raw);
       if (!Number.isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      return null;
+      return '';
     }
 
     function selectedMonthData() {
@@ -808,7 +863,7 @@
         legacy.classList.add('hidden'); legacy.textContent = '';
       }
       document.getElementById('monthlyStatus').textContent = period
-        ? `Periode ${period}: ${targets.length} target, ${results.length} hasil, ${paths.length} foto. Data hasil dihitung dari kolom waktu laporan.`
+        ? `Periode ${period}: ${targets.length} target, ${results.length} hasil, ${paths.length} foto. Data hasil dihitung dari periode target yang tersimpan; tanggal laporan hanya untuk data lama.`
         : 'Pilih bulan untuk melihat ringkasan data.';
     }
 
@@ -830,7 +885,7 @@
       if (!period) return showToast('Pilih periode bulan terlebih dahulu.', 'warning');
       if (!targets.length && !results.length) return showToast('Tidak ada data pada periode ini untuk diarsipkan.', 'warning');
       const targetRows = targets.map((t,i) => ({ NO:i+1, PERIODE:t.periode, PETUGAS:t.petugas, IDPEL:t.idpel, NAMA:t.nama, RBM:t.rbm||'-', ALAMAT:t.alamat, TARIF:t.tarif, DAYA:t.daya }));
-      const resultRows = results.map((r,i) => ({ NO:i+1, WAKTU:r.waktu||'-', KODE_PETUGAS:r.petugas, IDPEL:r.idpel, NAMA_PELANGGAN:r.nama, RBM:r.rbm||'-', ALAMAT:r.alamat, TARIF:r.tarif||'-', DAYA:r.daya||'-', KETERANGAN:r.keterangan, LINK_FOTO:r.foto_url||'-' }));
+      const resultRows = results.map((r,i) => ({ NO:i+1, PERIODE:resultMonth(r), WAKTU:r.waktu||'-', KODE_PETUGAS:r.petugas, IDPEL:r.idpel, NAMA_PELANGGAN:r.nama, RBM:r.rbm||'-', ALAMAT:r.alamat, TARIF:r.tarif||'-', DAYA:r.daya||'-', KETERANGAN:r.keterangan, LINK_FOTO:r.foto_url||'-' }));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(targetRows), 'Target_WO');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resultRows), 'Hasil_Pekerjaan');
