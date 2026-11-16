@@ -293,6 +293,7 @@
     let currentPetugas = localStorage.getItem('wo_pln_petugas') || '';
     let myTargets = [];
     let myResults = [];
+    let selectedPeriod = localStorage.getItem('wo_pln_periode') || '';
     let statusFilter = 'ALL';
     let rbmFilter = 'ALL';
     let selectedCompressedBlob = null;
@@ -502,8 +503,8 @@
     function normalizePeriod(value) {
       if (value === null || value === undefined || value === '') return '';
       const raw = String(value).trim();
-      if (/^\\d{4}-\\d{2}$/.test(raw)) return raw;
-      const m = raw.match(/^(\\d{1,2})[\\/-](\\d{4})$/);
+      if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+      const m = raw.match(/^(\d{1,2})[\/-](\d{4})$/);
       if (m) return `${m[2]}-${m[1].padStart(2, '0')}`;
       const d = new Date(raw);
       if (!Number.isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
@@ -516,7 +517,7 @@
       if (explicit) return explicit;
       // Kompatibilitas laporan lama: ambil bulan dari kolom waktu.
       const raw = String(result.waktu || '').trim();
-      const match = raw.match(/^(\\d{1,2})[\\/](\\d{1,2})[\\/](\\d{2,4})/);
+      const match = raw.match(/^(\d{1,2})[\/](\d{1,2})[\/](\d{2,4})/);
       if (match) {
         const year = match[3].length === 2 ? `20${match[3]}` : match[3];
         return `${year}-${match[2].padStart(2, '0')}`;
