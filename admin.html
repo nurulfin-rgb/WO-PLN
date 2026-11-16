@@ -353,43 +353,6 @@
       modal.classList.remove('flex');
     }
 
-    // 6. LOAD DATA REAL-TIME DARI SUPABASE DENGAN MEKANISME HIBRIDA CERDAS
-    async function loadAdminData(notify = false) {
-      const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || '[]');
-      const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || '[]');
-
-      try {
-        if (!supabaseClient) throw new Error('Failed to fetch');
-
-        const { data: tData, error: tErr } = await supabaseClient.from('targets').select('*').order('id', { ascending: true });
-        const { data: rData, error: rErr } = await supabaseClient.from('results').select('*').order('id', { ascending: false });
-
-        if (tErr) throw tErr;
-        if (rErr) throw rErr;
-
-        setConnectionBadge('live');
-
-        // Jika Supabase kosong tapi di browser ada data lokal (8 data), otomatis dorong ke Supabase!
-        if ((!tData || tData.length === 0) && cachedT.length > 0) {
-          const cleanPayload = cachedT.map(({ id, ...rest }) => rest);
-          const { data: syncedT, error: syncErr } = await supabaseClient
-            .from('targets')
-            .insert(cleanPayload)
-            .select();
-
-          if (!syncErr && syncedT) {
-            allTargets = syncedT;
-            try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
-            showToast(`${syncedT.length} data lokal berhasil disinkronkan ke Supabase!`, 'success');
-          } else {
-            allTargets = cachedT;
-            if (syncErr) showToast(`Supabase terkoneksi, tapi ditolak RLS Policy: ${syncErr.message}`, 'warning');
-          }
-        } else {
-          allTargets = tData || [];
-          try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
-        }
-
     // 6. LOAD DATA REAL-TIME DARI SUPABASE SECARA UTUH
     async function loadAdminData(notify = false) {
       try {
