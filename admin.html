@@ -154,7 +154,7 @@
       <div class="flex flex-col sm:flex-row sm:items-end gap-3">
         <div class="w-full sm:w-56">
           <label for="managementPeriod" class="block text-xs font-bold text-slate-700 mb-1.5">Pilih periode bulan</label>
-          <input id="managementPeriod" type="month" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm font-bold" onchange="renderMonthlySummary()" />
+          <input id="managementPeriod" type="month" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm font-bold" onchange="renderMonthlySummary(); renderAdminTable()" />
         </div>
         <button onclick="exportMonthlyExcel()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold">📥 Unduh Arsip Excel</button>
         <button onclick="deleteMonthlyData()" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold">🗑️ Hapus Data Bulan Ini</button>
@@ -265,11 +265,17 @@
         </div>
       </div>
 
-      <div class="mt-3">
-        <label for="targetPeriodFilter" class="block text-xs font-bold text-slate-600 mb-1">Tampilkan target periode</label>
-        <select id="targetPeriodFilter" onchange="renderTargetModalTable()" class="w-full sm:w-64 px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold">
-          <option value="ALL">Semua Periode</option>
-        </select>
+      <div class="mt-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+        <div>
+          <label for="targetPeriodFilter" class="block text-xs font-bold text-slate-600 mb-1">Tampilkan target periode</label>
+          <select id="targetPeriodFilter" onchange="renderTargetModalTable()" class="w-full sm:w-64 px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold">
+            <option value="ALL">Semua Periode</option>
+          </select>
+          <p id="targetPeriodCount" class="text-[11px] text-slate-500 mt-1">Pilih satu periode untuk menghapus seluruh target pada bulan tersebut.</p>
+        </div>
+        <button id="btnDeletePeriodTargets" type="button" onclick="confirmDeletePeriodTargets()"
+          class="px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold disabled:opacity-40 disabled:cursor-not-allowed"
+          disabled>🗑️ Hapus Semua Target Periode Ini</button>
       </div>
       <div class="overflow-y-auto flex-1 mt-3 border border-slate-200 rounded-2xl">
         <table class="w-full text-left text-xs border-collapse">
@@ -520,12 +526,15 @@
 
     function renderAdminTable() {
       const fPeriod = document.getElementById('filterPeriod')?.value || 'ALL';
+      const monthlyPeriod = document.getElementById('managementPeriod')?.value || '';
       const fPetugas = document.getElementById('filterPetugas').value;
       const fRbm = document.getElementById('filterRbm').value;
       const fKet = document.getElementById('filterKet').value;
       const q = document.getElementById('searchAdmin').value.toLowerCase().trim();
 
       filteredResults = allResults.filter(r => {
+        // Riwayat utama mengikuti periode yang sedang dipilih pada Pengelolaan Data Bulanan.
+        if (monthlyPeriod && resultMonth(r) !== monthlyPeriod) return false;
         if (fPeriod !== 'ALL' && resultMonth(r) !== fPeriod) return false;
         if (fPetugas !== 'ALL' && String(r.petugas) !== fPetugas) return false;
         if (fRbm !== 'ALL' && String(r.rbm || '').toUpperCase() !== fRbm) return false;
@@ -756,6 +765,15 @@
         ? allTargets
         : allTargets.filter(t => normalizeMonth(t.periode || t.period) === selected);
 
+      const bulkDeleteButton = document.getElementById('btnDeletePeriodTargets');
+      const periodCountLabel = document.getElementById('targetPeriodCount');
+      if (bulkDeleteButton) bulkDeleteButton.disabled = selected === 'ALL' || visibleTargets.length === 0;
+      if (periodCountLabel) {
+        periodCountLabel.textContent = selected === 'ALL'
+          ? `Total ${allTargets.length} target dari semua periode. Pilih satu periode untuk menghapus target bulan tersebut.`
+          : `Periode ${selected}: ${visibleTargets.length} target. Tombol hapus hanya menghapus target periode ini.`;
+      }
+
       if (visibleTargets.length === 0) {
         tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">Tidak ada target pada periode yang dipilih.</td></tr>`;
         return;
@@ -794,6 +812,43 @@
         const idpel = button.dataset.idpel;
         confirmDeleteTarget(id !== '' ? Number(id) : idpel);
       };
+    }
+
+    async function confirmDeletePeriodTargets() {
+      const period = document.getElementById('targetPeriodFilter')?.value || 'ALL';
+      if (period === 'ALL') return showToast('Pilih satu periode tertentu terlebih dahulu.', 'warning');
+
+      const selectedTargets = allTargets.filter(t => normalizeMonth(t.periode || t.period) === period);
+      if (!selectedTargets.length) return showToast(`Tidak ada target pada periode ${period}.`, 'warning');
+
+      const ids = selectedTargets.map(t => t.id).filter(id => id !== undefined && id !== null);
+      if (ids.length !== selectedTargets.length) {
+        return showToast('Ada target tanpa ID database. Penghapusan dibatalkan demi keamanan.', 'error');
+      }
+
+      askConfirm(
+        'HAPUS SEMUA TARGET PERIODE INI?',
+        `Anda akan menghapus ${selectedTargets.length} target WO untuk periode ${period} dari tabel targets. Hasil pekerjaan dan foto di tabel results/storage TIDAK ikut dihapus. Tindakan ini permanen. Pastikan periode sudah benar.`,
+        async () => {
+          try {
+            if (!supabaseClient) throw new Error('Supabase belum terhubung');
+            for (let i = 0; i < ids.length; i += 500) {
+              const { error } = await supabaseClient.from('targets').delete().in('id', ids.slice(i, i + 500));
+              if (error) throw error;
+            }
+            setConnectionBadge('live');
+            showToast(`${selectedTargets.length} target periode ${period} berhasil dihapus. Riwayat hasil dan foto tetap aman.`, 'success');
+            await loadAdminData(false);
+            populateTargetPeriodFilter();
+            const periodSelect = document.getElementById('targetPeriodFilter');
+            if (periodSelect) periodSelect.value = period;
+            renderTargetModalTable();
+          } catch (err) {
+            showToast(`Gagal menghapus target periode ${period}: ${err.message || err}`, 'error');
+            await loadAdminData(false);
+          }
+        }
+      );
     }
 
     function confirmDeleteTarget(targetIdentifier) {
@@ -868,7 +923,7 @@
         legacy.classList.add('hidden'); legacy.textContent = '';
       }
       document.getElementById('monthlyStatus').textContent = period
-        ? `Periode ${period}: ${targets.length} target, ${results.length} hasil, ${paths.length} foto. Data hasil dihitung dari periode target yang tersimpan; tanggal laporan hanya untuk data lama.`
+        ? `Periode ${period}: ${targets.length} target, ${results.length} hasil, ${paths.length} foto. Tabel Hasil Pekerjaan Lapangan di bawah juga difilter mengikuti periode ini.`
         : 'Pilih bulan untuk melihat ringkasan data.';
     }
 
