@@ -39,7 +39,7 @@
               ADMIN CONTROL
             </span>
             <span id="connStatus" class="text-xs font-semibold text-emerald-400">
-              ● Terhubung • Supabase Live
+              ● Online • Supabase Live
             </span>
           </div>
           <h1 class="text-lg sm:text-xl font-extrabold tracking-tight mt-0.5">
@@ -107,7 +107,7 @@
     <!-- 2. BAR FILTER & PENCARIAN -->
     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
       <div class="flex flex-wrap items-center gap-3">
-        <!-- Filter Petugas (Tanpa kata 'Petugas' pada opsi individu) -->
+        <!-- Filter Petugas -->
         <select id="filterPetugas" onchange="renderAdminTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-500">
           <option value="ALL">Semua Petugas (51806.01 - 16)</option>
         </select>
@@ -158,7 +158,7 @@
           </thead>
           <tbody id="adminTableBody" class="divide-y divide-slate-100 text-xs">
             <tr>
-              <td colspan="10" class="py-12 text-center text-slate-400">Memuat data dari Supabase...</td>
+              <td colspan="10" class="py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
           </tbody>
         </table>
@@ -280,10 +280,10 @@
   <!-- JAVASCRIPT LOGIC                                                      -->
   <!-- ===================================================================== -->
   <script>
-    // 1. KONFIGURASI SUPABASE (MENGGUNAKAN PUBLISHABLE KEY PROJECT ANDA)
+    // 1. KONFIGURASI SUPABASE
     const SUPABASE_URL = 'https://suutoxvenuuwlpbkblbn.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_QTkqhUV8kguwZODdihQn-g_8io8WC7P';
-    const supabaseClient = window.supabase && typeof window.supabase.createClient === 'function'
+    const supabaseClient = (window.supabase && typeof window.supabase.createClient === 'function')
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
       : null;
 
@@ -291,19 +291,31 @@
     let allTargets = [];
     let allResults = [];
     let filteredResults = [];
-    // Jangan paksa pratinjau lokal agar langsung terhubung ke Supabase
-    let isSandboxPreview = false;
 
-    const FALLBACK_TARGETS = [];
+    function isNetworkBlockedError(err) {
+      const msg = String(err?.message || err || '').toLowerCase();
+      return msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed') || !supabaseClient;
+    }
 
-    // 3. POPULATE DROPDOWN FILTER PETUGAS (TANPA KATA 'PETUGAS' PADA OPSI INDIVIDU)
-    const fPetugas = document.getElementById('filterPetugas');
+    function setConnectionBadge(mode) {
+      const el = document.getElementById('connStatus');
+      if (mode === 'local') {
+        el.textContent = '● Mode Pratinjau Lokal';
+        el.className = 'text-xs font-semibold text-amber-400';
+      } else {
+        el.textContent = '● Online • Supabase Live';
+        el.className = 'text-xs font-semibold text-emerald-400';
+      }
+    }
+
+    // 3. POPULATE DROPDOWN FILTER PETUGAS
+    const filterPetugasSel = document.getElementById('filterPetugas');
     for (let i = 1; i <= 16; i++) {
       const code = `51806.${String(i).padStart(2, '0')}`;
       const opt = document.createElement('option');
       opt.value = code;
       opt.textContent = code;
-      fPetugas.appendChild(opt);
+      filterPetugasSel.appendChild(opt);
     }
 
     // 4. NOTIFIKASI TOAST (PENGGANTI ALERT)
@@ -322,23 +334,27 @@
       container.appendChild(toast);
       setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateY(8px)';
+        toast.style.transform = 'translateX(12px)';
         setTimeout(() => toast.remove(), 300);
       }, 3200);
     }
 
-    // 5. MODAL KONFIRMASI CUSTOM
-    function askConfirm(title, message, onConfirm) {
+    // 5. MODAL KONFIRMASI KUSTOM
+    function askConfirm(title, message, onConfirmCallback) {
       document.getElementById('confirmTitle').textContent = title;
       document.getElementById('confirmMessage').textContent = message;
-      const btn = document.getElementById('btnConfirmAction');
-      btn.onclick = async () => {
-        closeConfirmModal();
-        await onConfirm();
-      };
       const modal = document.getElementById('modalConfirm');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+
+      const btnAction = document.getElementById('btnConfirmAction');
+      const newBtn = btnAction.cloneNode(true);
+      btnAction.parentNode.replaceChild(newBtn, btnAction);
+
+      newBtn.addEventListener('click', async () => {
+        closeConfirmModal();
+        await onConfirmCallback();
+      });
     }
 
     function closeConfirmModal() {
@@ -347,11 +363,13 @@
       modal.classList.remove('flex');
     }
 
-    // 6. LOAD DATA REAL-TIME DARI SUPABASE DENGAN HANDLE FETCH ERROR
+    // 6. LOAD DATA REAL-TIME DARI SUPABASE DENGAN MEKANISME HIBRIDA CERDAS
     async function loadAdminData(notify = false) {
+      const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || '[]');
+      const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || '[]');
+
       try {
-        document.getElementById('connStatus').textContent = '● Terhubung • Supabase Live';
-        document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
+        if (!supabaseClient) throw new Error('Failed to fetch');
 
         const { data: tData, error: tErr } = await supabaseClient.from('targets').select('*').order('id', { ascending: true });
         const { data: rData, error: rErr } = await supabaseClient.from('results').select('*').order('id', { ascending: false });
@@ -359,61 +377,75 @@
         if (tErr) throw tErr;
         if (rErr) throw rErr;
 
-        // Ambil langsung dari Supabase sebagai sumber utama
-        allTargets = tData || [];
-        allResults = rData || [];
+        setConnectionBadge('live');
 
-        try {
-          localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
-          localStorage.setItem('admin_cache_results', JSON.stringify(allResults));
-        } catch(e) {}
+        if ((tData && tData.length > 0) || cachedT.length === 0) {
+          allTargets = tData || [];
+          try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
+        } else {
+          allTargets = cachedT;
+        }
+
+        if ((rData && rData.length > 0) || cachedR.length === 0) {
+          allResults = rData || [];
+          try { localStorage.setItem('admin_cache_results', JSON.stringify(allResults)); } catch (e) {}
+        } else {
+          allResults = cachedR;
+        }
 
         updateDashboardStats();
         renderAdminTable();
         if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
       } catch (err) {
-        console.warn("Supabase Fetch Warning:", err.message);
-        
-        const cachedT = JSON.parse(localStorage.getItem('admin_cache_targets') || '[]');
-        const cachedR = JSON.parse(localStorage.getItem('admin_cache_results') || '[]');
-
-        allTargets = cachedT;
-        allResults = cachedR;
-        document.getElementById('connStatus').textContent = '● Online • Supabase Live';
-        document.getElementById('connStatus').className = 'text-xs font-semibold text-emerald-400';
-        updateDashboardStats();
-        renderAdminTable();
-        if (notify) showToast('Data disinkronkan.', 'success');
+        if (isNetworkBlockedError(err)) {
+          setConnectionBadge('local');
+          allTargets = cachedT;
+          allResults = cachedR;
+          updateDashboardStats();
+          renderAdminTable();
+          if (notify) showToast('Data dimuat dari penyimpanan lokal (Mode Pratinjau).', 'success');
+        } else {
+          setConnectionBadge('live');
+          allTargets = cachedT;
+          allResults = cachedR;
+          updateDashboardStats();
+          renderAdminTable();
+          showToast(`Error Supabase: ${err.message}`, 'error');
+        }
       }
     }
 
     function updateDashboardStats() {
       const totalTarget = allTargets.length;
-      const totalSelesai = allResults.length;
-      const belum = Math.max(0, totalTarget - totalSelesai);
-      const persen = totalTarget > 0 ? Math.min(100, Math.round((totalSelesai / totalTarget) * 100)) : 0;
+      const doneIdpels = new Set(allResults.map(r => String(r.idpel).trim()));
+      const selesaiCount = totalTarget > 0
+        ? allTargets.filter(t => doneIdpels.has(String(t.idpel).trim())).length
+        : allResults.length;
+      const belumCount = Math.max(0, totalTarget - selesaiCount);
+      const persen = totalTarget > 0 ? Math.round((selesaiCount / totalTarget) * 100) : (allResults.length > 0 ? 100 : 0);
 
-      document.getElementById('btnTargetCount').textContent = totalTarget;
       document.getElementById('statTarget').textContent = totalTarget;
-      document.getElementById('statSelesai').textContent = totalSelesai;
-      document.getElementById('statBelum').textContent = belum;
-      document.getElementById('statPersen').textContent = persen + '%';
-      document.getElementById('progressBar').style.width = persen + '%';
+      document.getElementById('btnTargetCount').textContent = totalTarget;
+      document.getElementById('statSelesai').textContent = selesaiCount;
+      document.getElementById('statBelum').textContent = belumCount;
+      document.getElementById('statPersen').textContent = `${persen}%`;
+      document.getElementById('progressBar').style.width = `${persen}%`;
     }
 
-    // 7. RENDER TABEL HASIL PEKERJAAN LAPANGAN
+    // 7. RENDER TABEL UTAMA ADMIN
     function renderAdminTable() {
-      const pFilter = document.getElementById('filterPetugas').value;
-      const kFilter = document.getElementById('filterKet').value;
+      const fPetugas = document.getElementById('filterPetugas').value;
+      const fKet = document.getElementById('filterKet').value;
       const q = document.getElementById('searchAdmin').value.toLowerCase().trim();
 
       filteredResults = allResults.filter(r => {
-        const matchP = pFilter === 'ALL' || String(r.petugas).trim() === pFilter;
-        const matchK = kFilter === 'ALL' || String(r.keterangan).trim() === kFilter;
-        const matchQ = !q ||
-          String(r.idpel || '').toLowerCase().includes(q) ||
-          String(r.nama || '').toLowerCase().includes(q);
-        return matchP && matchK && matchQ;
+        if (fPetugas !== 'ALL' && r.petugas !== fPetugas) return false;
+        if (fKet !== 'ALL' && r.keterangan !== fKet) return false;
+        if (q) {
+          const hay = `${r.idpel} ${r.nama} ${r.alamat} ${r.petugas}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
       });
 
       document.getElementById('badgeCount').textContent = `${filteredResults.length} Data`;
@@ -430,37 +462,37 @@
         return;
       }
 
-      tbody.innerHTML = filteredResults.map(r => {
-        const safeCaption = `${r.nama || '-'} (${r.idpel || '-'}) • ${r.keterangan || '-'}`.replace(/'/g, "\\'");
-        const safeUrl = (r.foto_url || '').replace(/'/g, "\\'");
+      tbody.innerHTML = filteredResults.map(row => {
+        const badgeColor =
+          row.keterangan === 'RATTING PLN MOBILE' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+          row.keterangan === 'TRANSAKSI PLN MOBILE' ? 'bg-sky-100 text-sky-800 border-sky-200' :
+          'bg-emerald-100 text-emerald-800 border-emerald-200';
+
+        const safeCaption = `${row.petugas} • ${row.idpel} • ${row.nama}`.replace(/'/g, "\\'");
+        const safeUrl = (row.foto_url || '').replace(/'/g, "\\'");
+
         return `
           <tr class="hover:bg-slate-50/90 transition">
-            <td class="py-3 px-4 whitespace-nowrap text-slate-500 font-medium">${r.waktu || '-'}</td>
+            <td class="py-3 px-4 text-slate-500 whitespace-nowrap">${row.waktu || '-'}</td>
+            <td class="py-3 px-4 font-mono font-extrabold text-slate-900 whitespace-nowrap">${row.petugas}</td>
+            <td class="py-3 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">${row.idpel}</td>
+            <td class="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">${row.nama}</td>
+            <td class="py-3 px-4 text-slate-600 max-w-[220px] truncate" title="${row.alamat}">${row.alamat}</td>
+            <td class="py-3 px-4 whitespace-nowrap">${row.tarif || '-'}</td>
+            <td class="py-3 px-4 whitespace-nowrap">${row.daya || '-'}</td>
             <td class="py-3 px-4 whitespace-nowrap">
-              <span class="px-2 py-1 rounded-md bg-slate-900 text-amber-400 font-mono font-extrabold text-[11px]">
-                ${r.petugas || '-'}
-              </span>
-            </td>
-            <td class="py-3 px-4 whitespace-nowrap font-mono font-extrabold text-slate-800">${r.idpel || '-'}</td>
-            <td class="py-3 px-4 font-bold text-slate-900">${r.nama || '-'}</td>
-            <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${r.alamat || ''}">${r.alamat || '-'}</td>
-            <td class="py-3 px-4 whitespace-nowrap font-semibold">${r.tarif || '-'}</td>
-            <td class="py-3 px-4 whitespace-nowrap font-semibold">${r.daya || '-'}</td>
-            <td class="py-3 px-4 whitespace-nowrap">
-              <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-[10px]">
-                ${r.keterangan || '-'}
+              <span class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold border ${badgeColor}">
+                ${row.keterangan}
               </span>
             </td>
             <td class="py-3 px-4 text-center whitespace-nowrap">
-              ${r.foto_url
-                ? `<button onclick="viewFoto('${safeUrl}', '${safeCaption}')" class="px-2.5 py-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-800 font-extrabold text-[11px] transition">
-                    🖼️ Lihat Foto
-                  </button>`
-                : '<span class="text-slate-400">-</span>'
+              ${row.foto_url
+                ? `<button onclick="openFotoModal('${safeUrl}', '${safeCaption}')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-400 text-[11px] font-extrabold shadow-sm transition">🖼️ Lihat</button>`
+                : '<span class="text-slate-300">-</span>'
               }
             </td>
             <td class="py-3 px-4 text-center whitespace-nowrap">
-              <button onclick="confirmDeleteResult(${r.id}, '${String(r.idpel || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px] transition">
+              <button onclick="confirmDeleteResult(${row.id}, '${row.idpel}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-extrabold transition">
                 Hapus
               </button>
             </td>
@@ -469,8 +501,8 @@
       }).join('');
     }
 
-    // 8. FULLSCREEN FOTO MODAL
-    function viewFoto(url, caption) {
+    // 8. PREVIEW FOTO FULLSCREEN
+    function openFotoModal(url, caption) {
       document.getElementById('modalFotoImg').src = url;
       document.getElementById('modalFotoCaption').textContent = caption || 'Dokumentasi Lapangan';
       const modal = document.getElementById('modalFoto');
@@ -489,15 +521,28 @@
     function confirmDeleteResult(id, idpel) {
       askConfirm(
         'Hapus Hasil Laporan?',
-        `Laporan untuk IDPEL ${idpel} akan dihapus permanen dari tabel results.`,
+        `Laporan untuk IDPEL ${idpel} akan dihapus permanen dari daftar hasil.`,
         async () => {
           try {
+            if (!supabaseClient) throw new Error('Failed to fetch');
             const { error } = await supabaseClient.from('results').delete().eq('id', id);
             if (error) throw error;
-            showToast('Laporan berhasil dihapus.', 'success');
+
+            allResults = allResults.filter(r => r.id !== id);
+            try { localStorage.setItem('admin_cache_results', JSON.stringify(allResults)); } catch (e) {}
+            showToast('Laporan berhasil dihapus dari Supabase.', 'success');
             await loadAdminData(false);
           } catch (err) {
-            showToast('Gagal menghapus: ' + err.message, 'error');
+            if (isNetworkBlockedError(err)) {
+              setConnectionBadge('local');
+              allResults = allResults.filter(r => r.id !== id);
+              try { localStorage.setItem('admin_cache_results', JSON.stringify(allResults)); } catch (e) {}
+              updateDashboardStats();
+              renderAdminTable();
+              showToast('Laporan berhasil dihapus (Mode Pratinjau Lokal).', 'success');
+            } else {
+              showToast(`Gagal menghapus dari Supabase: ${err.message}`, 'error');
+            }
           }
         }
       );
@@ -517,7 +562,80 @@
       modal.classList.remove('flex');
     }
 
-    // MODAL KELOLA TARGET WO
+    async function processExcelImport() {
+      const file = document.getElementById('excelFileInput').files[0];
+      if (!file) {
+        showToast('Pilih file Excel (.xlsx / .csv) terlebih dahulu!', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btnRunImport');
+      btn.disabled = true;
+      btn.textContent = 'Mengupload...';
+
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf);
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+
+        const dbPayload = rows.map(r => ({
+          petugas: String(r.petugas || r.PETUGAS || '').trim(),
+          idpel: String(r.idpel || r.IDPEL || '').trim(),
+          nama: String(r.nama || r.NAMA || '-').trim(),
+          alamat: String(r.alamat || r.ALAMAT || '-').trim(),
+          tarif: String(r.tarif || r.TARIF || '-').trim(),
+          daya: String(r.daya || r.DAYA || '-').trim()
+        })).filter(x => x.petugas && x.idpel);
+
+        if (dbPayload.length === 0) {
+          throw new Error('Tidak ada baris valid. Pastikan header kolom: petugas | idpel | nama | alamat | tarif | daya');
+        }
+
+        try {
+          if (!supabaseClient) throw new Error('Failed to fetch');
+          const { data: insertedData, error: insertErr } = await supabaseClient
+            .from('targets')
+            .insert(dbPayload)
+            .select();
+
+          if (insertErr) throw insertErr;
+
+          setConnectionBadge('live');
+          const savedRows = insertedData && insertedData.length > 0 ? insertedData : dbPayload;
+          allTargets = [...allTargets, ...savedRows];
+          try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
+
+          showToast(`Berhasil import ${dbPayload.length} target ke Supabase!`, 'success');
+          closeImportModal();
+          await loadAdminData(false);
+        } catch (dbErr) {
+          if (isNetworkBlockedError(dbErr)) {
+            setConnectionBadge('local');
+            const baseId = allTargets.reduce((max, t) => (typeof t.id === 'number' && t.id > max ? t.id : max), 0);
+            const localRows = dbPayload.map((item, idx) => ({
+              id: baseId + idx + 1,
+              ...item
+            }));
+            allTargets = [...allTargets, ...localRows];
+            try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
+
+            updateDashboardStats();
+            renderAdminTable();
+            showToast(`Berhasil import ${localRows.length} target (Mode Pratinjau Lokal).`, 'success');
+            closeImportModal();
+          } else {
+            showToast(`Gagal import ke Supabase: ${dbErr.message} (Cek RLS Policy tabel targets)`, 'error');
+          }
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Upload ke Supabase ➔';
+      }
+    }
+
+    // 11. MODAL KELOLA TARGET WO
     function openTargetModal() {
       renderTargetModalTable();
       const modal = document.getElementById('modalTargets');
@@ -531,91 +649,33 @@
       modal.classList.remove('flex');
     }
 
-    async function processExcelImport() {
-      const file = document.getElementById('excelFileInput').files[0];
-      if (!file) {
-        showToast('Pilih file Excel (.xlsx / .csv) terlebih dahulu!', 'warning');
-        return;
-      }
-
-      const btn = document.getElementById('btnRunImport');
-      btn.disabled = true;
-      btn.textContent = 'Menyimpan target...';
-
-      try {
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf);
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-
-        const payload = rows.map((r, idx) => ({
-          id: Date.now() + idx,
-          petugas: String(r.petugas || r.PETUGAS || '').trim(),
-          idpel: String(r.idpel || r.IDPEL || '').trim(),
-          nama: String(r.nama || r.NAMA || '-').trim(),
-          alamat: String(r.alamat || r.ALAMAT || '-').trim(),
-          tarif: String(r.tarif || r.TARIF || '-').trim(),
-          daya: String(r.daya || r.DAYA || '-').trim()
-        })).filter(x => x.petugas && x.idpel);
-
-        if (payload.length === 0) {
-          throw new Error('Tidak ada baris valid. Pastikan header kolom sesuai format!');
-        }
-
-        // Coba simpan ke Supabase, jika diblokir sandbox gunakan cache lokal
-        try {
-          const { error: insertErr } = await supabaseClient.from('targets').insert(payload);
-          if (insertErr) throw insertErr;
-        } catch (netErr) {
-          console.warn("Simpan lokal sandbox:", netErr.message);
-          allTargets = [...payload, ...allTargets];
-          localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
-        }
-
-        showToast(`Berhasil menyimpan ${payload.length} target WO!`, 'success');
-        closeImportModal();
-        await loadAdminData(false);
-      } catch (err) {
-        showToast('Gagal import: ' + err.message, 'error');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Upload ke Supabase ➔';
-      }
-    }
-
-    // MODAL KELOLA TARGET WO
-    function closeTargetModal() {
-      const modal = document.getElementById('modalTargets');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
     function renderTargetModalTable() {
       const doneSet = new Set(allResults.map(r => String(r.idpel).trim()));
       const tbody = document.getElementById('targetModalBody');
 
       if (allTargets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Belum ada data target WO di Supabase.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">Belum ada target WO di database.</td></tr>`;
         return;
       }
 
       tbody.innerHTML = allTargets.map(t => {
         const isDone = doneSet.has(String(t.idpel).trim());
-        const safeId = t.id !== undefined ? t.id : `'${t.idpel}'`;
+        const delArg = typeof t.id === 'number' ? t.id : `'${String(t.idpel).replace(/'/g, "\\'")}'`;
         return `
           <tr class="hover:bg-slate-50">
-            <td class="p-3 font-mono font-extrabold text-slate-800">${t.petugas}</td>
-            <td class="p-3 font-mono font-bold">${t.idpel}</td>
-            <td class="p-3 font-bold">${t.nama}</td>
+            <td class="p-3 font-mono font-extrabold text-slate-900">${t.petugas}</td>
+            <td class="p-3 font-mono font-bold text-slate-700">${t.idpel}</td>
+            <td class="p-3 font-bold text-slate-900">${t.nama}</td>
             <td class="p-3 text-slate-600">${t.alamat}</td>
-            <td class="p-3 whitespace-nowrap">${t.tarif || '-'}/${t.daya || '-'}</td>
-            <td class="p-3 whitespace-nowrap">
+            <td class="p-3">${t.tarif || '-'}/${t.daya || '-'}</td>
+            <td class="p-3">
               ${isDone
-                ? '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-extrabold text-[10px]">✓ Selesai</span>'
+                ? '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-extrabold text-[10px]">✔ Selesai</span>'
                 : '<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-extrabold text-[10px]">⏳ Belum</span>'
               }
             </td>
             <td class="p-3 text-center">
-              <button onclick="confirmDeleteTarget(${safeId})" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px]">
+              <button onclick="confirmDeleteTarget(${delArg})" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px] transition">
                 Hapus
               </button>
             </td>
@@ -627,9 +687,22 @@
     function confirmDeleteTarget(targetIdentifier) {
       askConfirm(
         'Hapus Target WO?',
-        `Target penugasan ini akan dihapus permanen dari daftar tugas.`,
+        'Target penugasan ini akan dihapus permanen dari daftar tugas.',
         async () => {
+          const removeLocalItem = () => {
+            if (typeof targetIdentifier === 'number') {
+              allTargets = allTargets.filter(t => t.id !== targetIdentifier);
+            } else {
+              allTargets = allTargets.filter(t => String(t.idpel).trim() !== String(targetIdentifier).trim());
+            }
+            try { localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets)); } catch (e) {}
+            updateDashboardStats();
+            renderAdminTable();
+            renderTargetModalTable();
+          };
+
           try {
+            if (!supabaseClient) throw new Error('Failed to fetch');
             const query = typeof targetIdentifier === 'number'
               ? supabaseClient.from('targets').delete().eq('id', targetIdentifier)
               : supabaseClient.from('targets').delete().eq('idpel', targetIdentifier);
@@ -637,24 +710,17 @@
             const { error } = await query;
             if (error) throw error;
 
+            setConnectionBadge('live');
+            removeLocalItem();
             showToast('Target WO berhasil dihapus dari Supabase.', 'success');
-            await loadAdminData(false);
-            renderTargetModalTable();
           } catch (err) {
-            console.warn("Delete fallback local:", err.message);
-            // Hapus secara lokal dari array dan localStorage agar tetap berfungsi mulus
-            if (typeof targetIdentifier === 'number') {
-              allTargets = allTargets.filter(t => t.id !== targetIdentifier);
+            if (isNetworkBlockedError(err)) {
+              setConnectionBadge('local');
+              removeLocalItem();
+              showToast('Target WO berhasil dihapus (Mode Pratinjau Lokal).', 'success');
             } else {
-              allTargets = allTargets.filter(t => String(t.idpel).trim() !== String(targetIdentifier).trim());
+              showToast(`Gagal menghapus dari Supabase: ${err.message}`, 'error');
             }
-            try {
-              localStorage.setItem('admin_cache_targets', JSON.stringify(allTargets));
-            } catch(e) {}
-            updateDashboardStats();
-            renderAdminTable();
-            renderTargetModalTable();
-            showToast('Target WO berhasil dihapus (Lokal).', 'success');
           }
         }
       );
@@ -663,25 +729,32 @@
     function confirmDeleteAllTargets() {
       askConfirm(
         'Hapus SEMUA Target WO?',
-        'Semua daftar target penugasan akan dihapus total dari database Supabase!',
+        'Semua daftar target penugasan akan dihapus total dari database Supabase dan penyimpanan lokal!',
         async () => {
-          try {
-            const { error } = await supabaseClient.from('targets').delete().not('id', 'is', null);
-            if (error) throw error;
-            
-            showToast('Semua target WO berhasil dibersihkan dari Supabase!', 'success');
-            await loadAdminData(false);
-            renderTargetModalTable();
-          } catch (err) {
-            console.warn("Delete all fallback local:", err.message);
+          const clearAllLocal = () => {
             allTargets = [];
-            try {
-              localStorage.removeItem('admin_cache_targets');
-            } catch(e) {}
+            try { localStorage.removeItem('admin_cache_targets'); } catch (e) {}
             updateDashboardStats();
             renderAdminTable();
             renderTargetModalTable();
-            showToast('Semua target WO berhasil dihapus (Lokal).', 'success');
+          };
+
+          try {
+            if (!supabaseClient) throw new Error('Failed to fetch');
+            const { error } = await supabaseClient.from('targets').delete().not('id', 'is', null);
+            if (error) throw error;
+
+            setConnectionBadge('live');
+            clearAllLocal();
+            showToast('Semua target WO berhasil dibersihkan dari Supabase!', 'success');
+          } catch (err) {
+            if (isNetworkBlockedError(err)) {
+              setConnectionBadge('local');
+              clearAllLocal();
+              showToast('Semua target WO berhasil dihapus (Mode Pratinjau Lokal).', 'success');
+            } else {
+              showToast(`Gagal menghapus semua target: ${err.message}`, 'error');
+            }
           }
         }
       );
@@ -689,29 +762,30 @@
 
     // 12. EXPORT REKAP KE EXCEL (.XLSX)
     function exportExcel() {
-      const sourceData = filteredResults.length > 0 ? filteredResults : allResults;
-      if (sourceData.length === 0) {
-        showToast('Belum ada data hasil laporan untuk diunduh.', 'warning');
+      if (filteredResults.length === 0) {
+        showToast('Tidak ada data hasil laporan untuk diexport!', 'warning');
         return;
       }
 
-      const dataExport = sourceData.map(r => ({
+      const dataRows = filteredResults.map((r, idx) => ({
+        NO: idx + 1,
         WAKTU: r.waktu || '-',
-        PETUGAS: r.petugas || '-',
-        IDPEL: r.idpel || '-',
-        NAMA: r.nama || '-',
-        ALAMAT: r.alamat || '-',
+        KODE_PETUGAS: r.petugas,
+        IDPEL: r.idpel,
+        NAMA_PELANGGAN: r.nama,
+        ALAMAT: r.alamat,
         TARIF: r.tarif || '-',
         DAYA: r.daya || '-',
-        KETERANGAN: r.keterangan || '-',
+        KETERANGAN: r.keterangan,
         LINK_FOTO: r.foto_url || '-'
       }));
 
-      const ws = XLSX.utils.json_to_sheet(dataExport);
+      const ws = XLSX.utils.json_to_sheet(dataRows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Rekap_WO_PLN');
-      XLSX.writeFile(wb, `Rekap_WO_PLN_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      showToast(`Berhasil mengunduh ${dataExport.length} data rekap (.xlsx)!`, 'success');
+      const dateTag = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `Rekap_Hasil_WO_PLN_${dateTag}.xlsx`);
+      showToast('File Excel rekap berhasil didownload!', 'success');
     }
 
     // 13. INISIALISASI & AUTO-REFRESH SETIAP 15 DETIK
