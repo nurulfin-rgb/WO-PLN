@@ -315,15 +315,41 @@
       }, 3200);
     }
 
-    // 5. CEK KONEKSI AWAL SUPABASE
+    // 5. CEK KONEKSI SUPABASE DENGAN REQUEST NYATA
+    function setConnectionState(state, message) {
+      const dot = document.getElementById('connDot');
+      const text = document.getElementById('connText');
+      const colors = {
+        online: 'w-2 h-2 rounded-full bg-emerald-400',
+        loading: 'w-2 h-2 rounded-full bg-amber-400',
+        offline: 'w-2 h-2 rounded-full bg-rose-500',
+        cache: 'w-2 h-2 rounded-full bg-amber-400'
+      };
+      dot.className = colors[state] || colors.offline;
+      text.textContent = message;
+    }
+
+    function getSupabaseErrorMessage(error) {
+      if (!error) return 'Kesalahan tidak diketahui';
+      return error.message || String(error);
+    }
+
     async function checkSupabaseConnection() {
       if (!supabaseClient) {
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-rose-500';
-        document.getElementById('connText').textContent = 'Pustaka Supabase Gagal Dimuat';
-        return;
+        setConnectionState('offline', 'Library Supabase gagal dimuat');
+        return false;
       }
-      document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-emerald-400';
-      document.getElementById('connText').textContent = '● Online • Siap (Supabase Live)';
+      setConnectionState('loading', 'Memeriksa koneksi Supabase...');
+      try {
+        const { error } = await supabaseClient.from('targets').select('id').limit(1);
+        if (error) throw error;
+        setConnectionState('online', 'Terhubung • Supabase');
+        return true;
+      } catch (error) {
+        console.error('Supabase connection check:', error);
+        setConnectionState('offline', `Supabase gagal: ${getSupabaseErrorMessage(error)}`);
+        return false;
+      }
     }
 
     // 6. LOGIN & LOGOUT
@@ -385,28 +411,27 @@
 
     // 7. AMBIL DATA DARI SUPABASE
     async function loadPetugasData(notify = false) {
-      if (!supabaseClient || isSandboxPreview) {
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
-        document.getElementById('connText').textContent = 'Mode Pratinjau Lokal';
-        const cachedT = JSON.parse(localStorage.getItem(`wo_cache_targets_${currentPetugas}`) || 'null');
-        myTargets = cachedT && cachedT.length > 0
-          ? cachedT
-          : FALLBACK_TARGETS.filter(t => t.petugas === currentPetugas);
-        myResults = JSON.parse(localStorage.getItem(`wo_cache_results_${currentPetugas}`) || '[]');
-        renderPetugasList();
-        if (notify) showToast('Data pratinjau lokal dimuat!', 'info');
+      if (!supabaseClient) {
+        setConnectionState('offline', 'Library Supabase tidak tersedia');
+        showPetugasCache('Library Supabase tidak tersedia', notify);
         return;
       }
+      if (isSandboxPreview) {
+        setConnectionState('cache', 'Mode pratinjau • data lokal');
+        showPetugasCache('Mode pratinjau lokal', notify);
+        return;
+      }
+
+      setConnectionState('loading', 'Mengambil data dari Supabase...');
       try {
         const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
-          supabaseClient.from('targets').select('*').eq('petugas', currentPetugas).order('id', { ascending: true }),
-          supabaseClient.from('results').select('*').eq('petugas', currentPetugas).order('id', { ascending: false })
+          supabaseClient.from('targets').select('*')
+            .eq('petugas', currentPetugas).order('id', { ascending: true }),
+          supabaseClient.from('results').select('*')
+            .eq('petugas', currentPetugas).order('id', { ascending: false })
         ]);
         if (tErr) throw tErr;
         if (rErr) throw rErr;
-
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-emerald-400';
-        document.getElementById('connText').textContent = 'Terhubung • Supabase';
 
         myTargets = tData || [];
         myResults = rData || [];
@@ -414,22 +439,33 @@
           localStorage.setItem(`wo_cache_targets_${currentPetugas}`, JSON.stringify(myTargets));
           localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
         } catch (storageErr) {
-          // Abaikan jika storage penuh
+          console.warn('Cache browser tidak dapat diperbarui:', storageErr);
         }
 
+        setConnectionState('online', 'Terhubung • Supabase');
         renderPetugasList();
-        if (notify) showToast('Data berhasil disinkronkan!', 'success');
+        if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
       } catch (err) {
-        document.getElementById('connDot').className = 'w-2 h-2 rounded-full bg-amber-400';
-        document.getElementById('connText').textContent = 'Offline / Cache Lokal';
+        console.error('Gagal memuat data petugas:', err);
+        setConnectionState('cache', 'Offline • menampilkan cache');
+        showPetugasCache(getSupabaseErrorMessage(err), notify);
+      }
+    }
+
+    function showPetugasCache(reason, notify = false) {
+      try {
         const cachedT = JSON.parse(localStorage.getItem(`wo_cache_targets_${currentPetugas}`) || 'null');
-        myTargets = cachedT && cachedT.length > 0
+        const cachedR = JSON.parse(localStorage.getItem(`wo_cache_results_${currentPetugas}`) || '[]');
+        myTargets = Array.isArray(cachedT)
           ? cachedT
           : FALLBACK_TARGETS.filter(t => t.petugas === currentPetugas);
-        myResults = JSON.parse(localStorage.getItem(`wo_cache_results_${currentPetugas}`) || '[]');
-        renderPetugasList();
-        if (notify) showToast('Menampilkan data cache lokal.', 'warning');
+        myResults = Array.isArray(cachedR) ? cachedR : [];
+      } catch (cacheError) {
+        myTargets = FALLBACK_TARGETS.filter(t => t.petugas === currentPetugas);
+        myResults = [];
       }
+      renderPetugasList();
+      if (notify) showToast(`Data lokal ditampilkan. Supabase: ${reason}`, 'warning');
     }
 
     function setStatusFilter(filter) {
@@ -559,7 +595,12 @@
       document.getElementById('inputKamera').value = '';
       document.getElementById('inputGaleri').value = '';
       document.getElementById('previewBox').classList.add('hidden');
-      document.getElementById('previewImg').src = '';
+      const preview = document.getElementById('previewImg');
+      if (preview.dataset.objectUrl) {
+        URL.revokeObjectURL(preview.dataset.objectUrl);
+        delete preview.dataset.objectUrl;
+      }
+      preview.src = '';
     }
 
     async function triggerCamera() {
@@ -622,32 +663,105 @@
       compressImageBlob(file);
     }
 
-    function compressImageBlob(fileOrBlob) {
-      const reader = new FileReader();
-      reader.onload = function (ev) {
-        const img = new Image();
-        img.onload = function () {
+    // Kompresi foto adaptif: target maksimal 250 KB per foto.
+    // Foto dikecilkan ke 800 px, lalu kualitas/ukuran diturunkan bila perlu.
+    async function compressImageBlob(fileOrBlob) {
+      const info = document.getElementById('fotoSizeInfo');
+      info.textContent = '⏳ Mengompres foto...';
+
+      try {
+        const imageDataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Gagal membaca file foto.'));
+          reader.readAsDataURL(fileOrBlob);
+        });
+
+        const img = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error('File foto tidak dapat dibuka.'));
+          image.src = imageDataUrl;
+        });
+
+        const maxBytes = 250 * 1024;
+        const dimensions = [800, 720, 640, 560];
+        const qualities = [0.68, 0.60, 0.52, 0.45, 0.40];
+        let bestBlob = null;
+        let bestCanvas = null;
+
+        for (const maxSide of dimensions) {
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const width = Math.max(1, Math.round(img.width * scale));
+          const height = Math.max(1, Math.round(img.height * scale));
           const canvas = document.createElement('canvas');
-          const maxW = 1024;
-          const scale = img.width > maxW ? maxW / img.width : 1;
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
+          canvas.width = width;
+          canvas.height = height;
 
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const ctx = canvas.getContext('2d', { alpha: false });
+          // Latar putih agar foto PNG transparan tidak berubah menjadi hitam.
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
 
-          selectedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
-          canvas.toBlob(blob => {
-            selectedCompressedBlob = blob;
-            const kb = Math.round(blob.size / 1024);
-            document.getElementById('fotoSizeInfo').textContent = `✅ Foto siap (${kb} KB)`;
-            document.getElementById('previewImg').src = selectedDataUrl;
-            document.getElementById('previewBox').classList.remove('hidden');
-          }, 'image/jpeg', 0.78);
-        };
-        img.src = ev.target.result;
-      };
-      reader.readAsDataURL(fileOrBlob);
+          for (const quality of qualities) {
+            const blob = await new Promise(resolve => {
+              canvas.toBlob(resolve, 'image/jpeg', quality);
+            });
+            if (!blob) continue;
+
+            if (!bestBlob || blob.size < bestBlob.size) {
+              bestBlob = blob;
+              bestCanvas = canvas;
+            }
+
+            if (blob.size <= maxBytes) {
+              bestBlob = blob;
+              bestCanvas = canvas;
+              break;
+            }
+          }
+
+          if (bestBlob && bestBlob.size <= maxBytes) break;
+        }
+
+        if (!bestBlob || !bestCanvas) {
+          throw new Error('Browser tidak berhasil mengompres foto.');
+        }
+
+        selectedCompressedBlob = bestBlob;
+        selectedDataUrl = bestCanvas.toDataURL(
+          'image/jpeg',
+          Math.max(0.40, Math.min(0.68, 0.68))
+        );
+
+        // Pastikan preview memakai hasil kompresi yang sama dengan file upload.
+        const previewUrl = URL.createObjectURL(bestBlob);
+        const preview = document.getElementById('previewImg');
+        if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+        preview.dataset.objectUrl = previewUrl;
+        preview.src = previewUrl;
+
+        const kb = (bestBlob.size / 1024).toFixed(0);
+        const originalKb = (fileOrBlob.size / 1024).toFixed(0);
+        const percent = fileOrBlob.size
+          ? Math.max(0, Math.round((1 - bestBlob.size / fileOrBlob.size) * 100))
+          : 0;
+        info.textContent = `✅ ${originalKb} KB → ${kb} KB (${percent}% lebih kecil)`;
+        document.getElementById('previewBox').classList.remove('hidden');
+
+        if (bestBlob.size > maxBytes) {
+          showToast(`Foto sudah diperkecil menjadi ${kb} KB, tetapi masih di atas target 250 KB.`, 'warning');
+        } else {
+          showToast(`Foto berhasil dikompres menjadi ${kb} KB.`, 'success');
+        }
+      } catch (error) {
+        selectedCompressedBlob = null;
+        selectedDataUrl = null;
+        document.getElementById('previewBox').classList.add('hidden');
+        showToast(`Gagal memproses foto: ${error.message}`, 'error');
+        console.error('Kompresi foto gagal:', error);
+      }
     }
 
     // 11. SUBMIT LAPORAN KE SUPABASE STORAGE & TABEL RESULTS
@@ -662,71 +776,78 @@
         showToast('Silakan ambil foto kamera atau pilih dari galeri!', 'warning');
         return;
       }
+      if (!supabaseClient || isSandboxPreview) {
+        showToast('Aplikasi sedang dalam mode pratinjau/offline. Laporan belum dikirim ke database.', 'error');
+        return;
+      }
 
       const btn = document.getElementById('btnSubmitLaporan');
       btn.disabled = true;
-      btn.textContent = 'Mengirim Laporan...';
-
+      btn.textContent = 'Mengirim foto dan laporan...';
       const idpel = document.getElementById('mIdpel').value;
       const nowStr = new Date().toLocaleString('id-ID', {
         dateStyle: 'short',
         timeStyle: 'short'
       });
 
-      const newRecord = {
-        id: Date.now(),
-        waktu: nowStr,
-        petugas: currentPetugas,
-        idpel: idpel,
-        nama: document.getElementById('mNamaVal').value,
-        alamat: document.getElementById('mAlamatVal').value,
-        tarif: document.getElementById('mTarifVal').value,
-        daya: document.getElementById('mDayaVal').value,
-        keterangan: ketEl.value,
-        foto_url: selectedDataUrl
-      };
-
       try {
-        if (!isSandboxPreview && supabaseClient) {
-          const fileName = `${currentPetugas}_${idpel}_${Date.now()}.jpg`;
-          const { error: upErr } = await supabaseClient.storage
-            .from('foto_wo')
-            .upload(fileName, selectedCompressedBlob, {
-              contentType: 'image/jpeg',
-              upsert: true
-            });
-
-          if (!upErr) {
-            const { data: pubData } = supabaseClient.storage.from('foto_wo').getPublicUrl(fileName);
-            if (pubData && pubData.publicUrl) {
-              newRecord.foto_url = pubData.publicUrl;
-            }
-          }
-
-          const { id, ...insertPayload } = newRecord;
-          await supabaseClient.from('results').insert([insertPayload]);
+        // Foto harus berhasil diupload sebelum laporan ditulis ke tabel results.
+        const fileName = `${currentPetugas}_${idpel}_${Date.now()}.jpg`;
+        const { data: uploadData, error: uploadError } = await supabaseClient.storage
+          .from('foto_wo')
+          .upload(fileName, selectedCompressedBlob, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+        if (uploadError) {
+          throw new Error(`Upload foto gagal: ${uploadError.message}. Periksa bucket foto_wo dan Storage Policies.`);
         }
+
+        const { data: publicData } = supabaseClient.storage
+          .from('foto_wo')
+          .getPublicUrl(uploadData.path || fileName);
+        if (!publicData || !publicData.publicUrl) {
+          throw new Error('Foto berhasil diupload, tetapi URL foto tidak dapat dibuat.');
+        }
+
+        const insertPayload = {
+          waktu: nowStr,
+          petugas: currentPetugas,
+          idpel,
+          nama: document.getElementById('mNamaVal').value,
+          alamat: document.getElementById('mAlamatVal').value,
+          tarif: document.getElementById('mTarifVal').value,
+          daya: document.getElementById('mDayaVal').value,
+          keterangan: ketEl.value,
+          foto_url: publicData.publicUrl
+        };
+
+        const { data: insertedRows, error: insertError } = await supabaseClient
+          .from('results')
+          .insert([insertPayload])
+          .select();
+        if (insertError) {
+          throw new Error(`Foto sudah terupload, tetapi penyimpanan laporan gagal: ${insertError.message}. File foto: ${fileName}`);
+        }
+        if (!insertedRows || insertedRows.length === 0) {
+          throw new Error('Database tidak mengembalikan data laporan setelah insert.');
+        }
+
+        showToast('Laporan dan foto berhasil tersimpan di Supabase!', 'success');
+        closeModal();
+        await loadPetugasData(false);
       } catch (err) {
-        // Abaikan error jaringan agar proses tetap sukses secara lokal
-        console.warn("Jaringan dibatasi:", err.message);
+        console.error('Gagal mengirim laporan:', err);
+        showToast(`Laporan BELUM berhasil dikirim: ${getSupabaseErrorMessage(err)}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Simpan & Kirim Laporan ✓';
       }
-
-      // Selalu masukkan ke array hasil lokal dan cache agar sukses tanpa error
-      myResults.unshift(newRecord);
-      try {
-        localStorage.setItem(`wo_cache_results_${currentPetugas}`, JSON.stringify(myResults));
-      } catch (e) {}
-
-      showToast('Laporan berhasil dikirim & disimpan!', 'success');
-      closeModal();
-      renderPetugasList();
-
-      btn.disabled = false;
-      btn.textContent = 'Simpan & Kirim Laporan ✓';
     }
 
     // JALANKAN INISIALISASI SAAT HALAMAN SIAP
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
+      await checkSupabaseConnection();
       initSession();
     });
   </script>
