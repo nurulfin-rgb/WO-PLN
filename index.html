@@ -293,6 +293,7 @@
     let currentPetugas = localStorage.getItem('wo_pln_petugas') || '';
     let myTargets = [];
     let myResults = [];
+    let selectedPeriod = localStorage.getItem('wo_pln_periode') || '';
     let statusFilter = 'ALL';
     let rbmFilter = 'ALL';
     let selectedCompressedBlob = null;
@@ -452,17 +453,40 @@
 
       setConnectionState('loading', 'Mengambil data dari Supabase...');
       try {
-        const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
-          supabaseClient.from('targets').select('*')
-            .eq('petugas', currentPetugas).order('id', { ascending: true }),
-          supabaseClient.from('results').select('*')
-            .eq('petugas', currentPetugas).order('id', { ascending: false })
-        ]);
-        if (tErr) throw tErr;
-        if (rErr) throw rErr;
+        // Supabase membatasi jumlah baris per permintaan (sering kali 1.000).
+        // Ambil data per halaman agar target periode berikutnya tidak terpotong.
+        async function fetchAllPetugasRows(tableName, ascending) {
+          const pageSize = 1000;
+          let offset = 0;
+          let allRows = [];
 
-        myTargets = tData || [];
-        myResults = rData || [];
+          while (true) {
+            const { data, error } = await supabaseClient
+              .from(tableName)
+              .select('*')
+              .eq('petugas', currentPetugas)
+              .order('id', { ascending })
+              .range(offset, offset + pageSize - 1);
+
+            if (error) throw error;
+
+            const rows = data || [];
+            allRows = allRows.concat(rows);
+
+            if (rows.length < pageSize) break;
+            offset += pageSize;
+          }
+
+          return allRows;
+        }
+
+        const [tData, rData] = await Promise.all([
+          fetchAllPetugasRows('targets', true),
+          fetchAllPetugasRows('results', false)
+        ]);
+
+        myTargets = tData;
+        myResults = rData;
         populatePeriodFilter();
         try {
           localStorage.setItem(`wo_cache_targets_${currentPetugas}`, JSON.stringify(myTargets));
@@ -514,7 +538,8 @@
       // Periode target yang tersimpan eksplisit menjadi acuan utama.
       const explicit = normalizePeriod(result.periode || result.period);
       if (explicit) return explicit;
-      // Laporan lama tanpa periode menggunakan bulan pada waktu laporan.
+
+      // Laporan lama tanpa periode: baca tanggal laporan dd/mm/yy atau dd/mm/yyyy.
       const raw = String(result.waktu || '').trim();
       const match = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
       if (match) {
@@ -663,7 +688,10 @@
 
     // 9. MODAL PENGERJAAN WO
     function openModalByIdpel(idpel) {
-      const item = myTargets.find(t => String(t.idpel).trim() === String(idpel).trim());
+      const item = myTargets.find(t =>
+        String(t.idpel).trim() === String(idpel).trim() &&
+        getTargetPeriod(t) === selectedPeriod
+      );
       if (!item) return;
 
       document.getElementById('mIdpel').value = item.idpel;
