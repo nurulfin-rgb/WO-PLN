@@ -77,21 +77,21 @@
       <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="text-xs font-extrabold text-slate-400 uppercase tracking-wider">TOTAL TARGET WO</div>
         <div id="statTarget" class="text-3xl font-extrabold text-slate-900 mt-1.5">0</div>
-        <div class="text-[11px] text-slate-400 mt-1">Data dari tabel targets</div>
+        <div class="text-[11px] text-slate-400 mt-1">Target pokok untuk 16 petugas</div>
       </div>
 
       <!-- Total Selesai -->
       <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm">
         <div class="text-xs font-extrabold text-emerald-600 uppercase tracking-wider">TOTAL SELESAI</div>
         <div id="statSelesai" class="text-3xl font-extrabold text-emerald-600 mt-1.5">0</div>
-        <div class="text-[11px] text-emerald-600/80 mt-1">Laporan masuk lapangan</div>
+        <div class="text-[11px] text-emerald-600/80 mt-1">Realisasi periode terpilih</div>
       </div>
 
       <!-- Belum Dikerjakan -->
       <div class="bg-white p-5 rounded-2xl border border-amber-200 shadow-sm">
         <div class="text-xs font-extrabold text-amber-600 uppercase tracking-wider">BELUM DIKERJAKAN</div>
         <div id="statBelum" class="text-3xl font-extrabold text-amber-600 mt-1.5">0</div>
-        <div class="text-[11px] text-amber-600/80 mt-1">Sisa target belum selesai</div>
+        <div class="text-[11px] text-amber-600/80 mt-1">Sisa target pokok belum selesai</div>
       </div>
 
       <!-- Persentase Selesai -->
@@ -122,6 +122,20 @@
         <button id="btnSaveBaseline" type="button" onclick="saveBaselineTarget()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold">Simpan & Sinkronkan Semua Petugas</button>
       </div>
       <p id="baselineTargetStatus" class="text-xs text-slate-500">Target pokok belum dimuat.</p>
+    </section>
+
+    <!-- REKAP MONITORING KINERJA PER PETUGAS -->
+    <section class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div><h2 class="text-sm font-extrabold text-emerald-700">📊 REKAP MONITORING KINERJA PETUGAS</h2>
+        <p class="text-xs text-slate-500 mt-1">Realisasi dihitung dari seluruh laporan pekerjaan yang masuk pada periode terpilih, termasuk yang melampaui target pokok.</p></div>
+        <span id="monitoringPeriodLabel" class="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 py-2">Periode berjalan</span>
+      </div>
+      <div class="overflow-x-auto border border-slate-200 rounded-xl"><table class="w-full text-left text-xs border-collapse min-w-[680px]">
+        <thead class="bg-slate-900 text-white uppercase text-[11px]"><tr><th class="p-3">Petugas</th><th class="p-3 text-right">Target Pokok</th><th class="p-3 text-right">Realisasi</th><th class="p-3 text-right">Persentase</th><th class="p-3">Keterangan</th></tr></thead>
+        <tbody id="monitoringTableBody" class="divide-y divide-slate-100"></tbody><tfoot id="monitoringTableFoot" class="bg-slate-50 font-extrabold"></tfoot>
+      </table></div>
+      <p class="text-[11px] text-slate-400">Target total = target per petugas × 16 petugas. Realisasi di atas target tetap dihitung penuh.</p>
     </section>
 
     <!-- 2. BAR FILTER & PENCARIAN -->
@@ -451,22 +465,19 @@
 
     // Ambil seluruh baris karena Supabase biasanya membatasi hasil per request.
     async function fetchAllRows(table, orderColumn, ascending) {
-      const pageSize = 1000;
-      let rows = [];
-      let from = 0;
-
+      const pageSize = 1000, concurrency = 4;
+      let rows = [], from = 0;
       while (true) {
-        const { data, error } = await supabaseClient
-          .from(table)
-          .select('*')
-          .order(orderColumn, { ascending })
-          .range(from, from + pageSize - 1);
-
-        if (error) throw error;
-        const batch = data || [];
-        rows = rows.concat(batch);
-        if (batch.length < pageSize) break;
-        from += pageSize;
+        const ranges = Array.from({length: concurrency}, (_, i) => [from + i * pageSize, from + (i + 1) * pageSize - 1]);
+        const batches = await Promise.all(ranges.map(async ([first, last]) => {
+          const {data, error} = await supabaseClient.from(table).select('*').order(orderColumn, {ascending}).range(first, last);
+          if (error) throw error;
+          return data || [];
+        }));
+        let finished = false;
+        for (const batch of batches) { rows = rows.concat(batch); if (batch.length < pageSize) { finished = true; break; } }
+        if (finished) break;
+        from += concurrency * pageSize;
       }
       return rows;
     }
@@ -529,6 +540,39 @@
       if (status) status.textContent = row
         ? `Periode ${period}: target ${Number(row.target_per_petugas).toLocaleString('id-ID')} pekerjaan per petugas (berlaku sama untuk 16 petugas).`
         : `Belum ada target pokok untuk periode ${period}.`;
+      updateDashboardStats();
+      renderPetugasMonitoring();
+    }
+
+    function getSelectedMonitoringPeriod() {
+      return document.getElementById('baselinePeriod')?.value || currentMonthValue();
+    }
+
+    function renderPetugasMonitoring() {
+      const period = getSelectedMonitoringPeriod();
+      const baseline = allBaselineTargets.find(x => x.periode === period);
+      const targetEach = baseline ? Number(baseline.target_per_petugas) : 0;
+      const codes = Array.from({length: 16}, (_, i) => `51806.${String(i + 1).padStart(2, '0')}`);
+      const counts = new Map(codes.map(code => [code, 0]));
+      allResults.forEach(row => {
+        if (resultMonth(row) !== period) return;
+        const code = String(row.petugas || '').trim();
+        if (counts.has(code)) counts.set(code, counts.get(code) + 1);
+      });
+      const fmt = n => Number(n || 0).toLocaleString('id-ID');
+      const [year, month] = period.split('-').map(Number);
+      const label = new Date(year, month - 1, 1).toLocaleDateString('id-ID', {month: 'long', year: 'numeric'});
+      document.getElementById('monitoringPeriodLabel').textContent = label;
+      let totalRealization = 0;
+      document.getElementById('monitoringTableBody').innerHTML = codes.map(code => {
+        const actual = counts.get(code) || 0; totalRealization += actual;
+        const pct = targetEach > 0 ? Math.round(actual / targetEach * 100) : 0;
+        const status = targetEach <= 0 ? 'Target belum diatur' : actual > targetEach ? 'Melampaui target' : actual === targetEach ? 'Target tercapai' : 'Belum tercapai';
+        const style = targetEach <= 0 ? 'bg-slate-100 text-slate-600' : actual >= targetEach ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+        return `<tr class="hover:bg-slate-50"><td class="p-3 font-mono font-bold">${code}</td><td class="p-3 text-right">${fmt(targetEach)}</td><td class="p-3 text-right font-extrabold">${fmt(actual)}</td><td class="p-3 text-right font-bold">${targetEach > 0 ? pct + '%' : '-'}</td><td class="p-3"><span class="inline-block rounded-lg px-2.5 py-1 font-bold ${style}">${status}</span></td></tr>`;
+      }).join('');
+      const totalTarget = targetEach * 16, totalPct = totalTarget > 0 ? Math.round(totalRealization / totalTarget * 100) : 0;
+      document.getElementById('monitoringTableFoot').innerHTML = `<tr><td class="p-3">TOTAL</td><td class="p-3 text-right">${fmt(totalTarget)}</td><td class="p-3 text-right">${fmt(totalRealization)}</td><td class="p-3 text-right">${totalTarget > 0 ? totalPct + '%' : '-'}</td><td class="p-3">${totalTarget > 0 ? (totalRealization >= totalTarget ? 'Target keseluruhan tercapai' : 'Masih ada kekurangan') : 'Atur target pokok'}</td></tr>`;
     }
 
     async function saveBaselineTarget() {
@@ -561,24 +605,25 @@
     }
 
     function updateDashboardStats() {
-      const totalTarget = allTargets.length;
-      const doneKeys = new Set(allResults.map(r =>
-        `${resultMonth(r)}|${String(r.petugas || '').trim()}|${String(r.idpel || '').trim()}`
-      ));
-      const selesaiCount = totalTarget > 0
-        ? allTargets.filter(t => doneKeys.has(
-            `${normalizeMonth(t.periode || t.period)}|${String(t.petugas || '').trim()}|${String(t.idpel || '').trim()}`
-          )).length
-        : allResults.length;
+      const period = getSelectedMonitoringPeriod();
+      const baseline = allBaselineTargets.find(x => x.periode === period);
+      const targetEach = baseline ? Number(baseline.target_per_petugas) : 0;
+      const totalTarget = targetEach * 16;
+      const selesaiCount = allResults.filter(r => resultMonth(r) === period).length;
       const belumCount = Math.max(0, totalTarget - selesaiCount);
-      const persen = totalTarget > 0 ? Math.round((selesaiCount / totalTarget) * 100) : (allResults.length > 0 ? 100 : 0);
-
-      document.getElementById('statTarget').textContent = totalTarget;
-      document.getElementById('btnTargetCount').textContent = totalTarget;
-      document.getElementById('statSelesai').textContent = selesaiCount;
-      document.getElementById('statBelum').textContent = belumCount;
+      const persen = totalTarget > 0 ? Math.round(selesaiCount / totalTarget * 100) : 0;
+      document.getElementById('statTarget').textContent = totalTarget.toLocaleString('id-ID');
+      document.getElementById('btnTargetCount').textContent = allTargets.length.toLocaleString('id-ID');
+      document.getElementById('statSelesai').textContent = selesaiCount.toLocaleString('id-ID');
+      document.getElementById('statBelum').textContent = belumCount.toLocaleString('id-ID');
       document.getElementById('statPersen').textContent = `${persen}%`;
-      document.getElementById('progressBar').style.width = `${persen}%`;
+      document.getElementById('progressBar').style.width = `${Math.min(100, persen)}%`;
+      const captions = [
+        ['#statTarget', `Target pokok ${period} untuk 16 petugas`],
+        ['#statSelesai', `Realisasi laporan periode ${period}`],
+        ['#statBelum', selesaiCount > totalTarget && totalTarget > 0 ? `Kelebihan ${selesaiCount - totalTarget} pekerjaan` : 'Sisa target pokok belum selesai']
+      ];
+      captions.forEach(([selector, value]) => { const el = document.querySelector(selector)?.parentElement?.querySelector('div.text-\\[11px\\]'); if (el) el.textContent = value; });
     }
 
     // 7. RENDER TABEL UTAMA ADMIN
@@ -1162,7 +1207,7 @@
       document.getElementById('baselinePeriod').value = month;
       document.getElementById('importPeriod').value = month;
       loadAdminData(false);
-      setInterval(() => loadAdminData(false), 15000);
+      setInterval(() => loadAdminData(false), 60000);
     });
   </script>
 </body>
