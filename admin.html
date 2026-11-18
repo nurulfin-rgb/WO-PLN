@@ -59,6 +59,9 @@
         <button onclick="openImportModal()" class="px-3.5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
           📥 Import Target (.xlsx)
         </button>
+        <button id="btnMonitoringWorkspace" type="button" onclick="toggleMonitoringWorkspace()" class="px-3.5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
+          📊 Monitoring Petugas
+        </button>
         <button onclick="document.getElementById('monthlyManagement').scrollIntoView({behavior:'smooth'})" class="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold shadow-sm transition">
           📅 Pengelolaan Data Bulanan
         </button>
@@ -104,8 +107,16 @@
       </div>
     </div>
 
-    <!-- TARGET POKOK PER PETUGAS (BERLAKU SAMA UNTUK SEMUA PETUGAS) -->
-    <section class="bg-white p-5 rounded-2xl border border-indigo-200 shadow-sm space-y-3">
+    <!-- PANEL MONITORING: TARGET POKOK + REKAP PETUGAS -->
+    <section id="monitoringWorkspace" class="hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-white to-indigo-50/60 shadow-lg p-4 sm:p-6 space-y-5">
+      <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900">📊 Pusat Monitoring Petugas</h2>
+          <p class="text-xs text-slate-500 mt-1">Atur target pokok dan pantau realisasi seluruh petugas dalam satu tempat.</p>
+        </div>
+        <button type="button" onclick="toggleMonitoringWorkspace(false)" class="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">Tutup ✕</button>
+      </div>
+      <section class="bg-white p-5 rounded-2xl border border-indigo-200 shadow-sm space-y-3">
       <div>
         <h2 class="text-sm font-extrabold text-indigo-700">🎯 TARGET POKOK PER PETUGAS</h2>
         <p class="text-xs text-slate-500 mt-1">Isi satu angka. Target yang sama akan berlaku otomatis untuk seluruh 16 petugas pada periode yang dipilih. Tidak mengubah daftar IDPEL hasil import.</p>
@@ -131,11 +142,12 @@
         <p class="text-xs text-slate-500 mt-1">Realisasi dihitung dari seluruh laporan pekerjaan yang masuk pada periode terpilih, termasuk yang melampaui target pokok.</p></div>
         <span id="monitoringPeriodLabel" class="text-xs font-bold text-slate-600 bg-slate-100 rounded-lg px-3 py-2">Periode berjalan</span>
       </div>
-      <div class="overflow-x-auto border border-slate-200 rounded-xl"><table class="w-full text-left text-xs border-collapse min-w-[680px]">
-        <thead class="bg-slate-900 text-white uppercase text-[11px]"><tr><th class="p-3">Petugas</th><th class="p-3 text-right">Target Pokok</th><th class="p-3 text-right">Realisasi</th><th class="p-3 text-right">Persentase</th><th class="p-3">Keterangan</th></tr></thead>
+      <div class="overflow-x-auto border border-slate-200 rounded-xl"><table class="w-full text-left text-[10px] border-collapse min-w-[850px]">
+        <thead class="bg-slate-900 text-white uppercase text-[11px]"><tr><th class="sticky left-0 z-30 bg-slate-900 p-2">Petugas</th><th class="p-2 text-right">Target</th><th class="p-2">Tanggal Pengerjaan</th><th class="p-2 text-right">Realisasi Total</th><th class="p-2 text-right">Kekurangan</th><th class="p-2 text-right">Persentase</th><th class="p-2">Keterangan</th></tr></thead>
         <tbody id="monitoringTableBody" class="divide-y divide-slate-100"></tbody><tfoot id="monitoringTableFoot" class="bg-slate-50 font-extrabold"></tfoot>
       </table></div>
       <p class="text-[11px] text-slate-400">Target total = target per petugas × 16 petugas. Realisasi di atas target tetap dihitung penuh.</p>
+    </section>
     </section>
 
     <!-- 2. BAR FILTER & PENCARIAN -->
@@ -544,8 +556,48 @@
       renderPetugasMonitoring();
     }
 
+    function toggleMonitoringWorkspace(forceOpen) {
+      const panel = document.getElementById('monitoringWorkspace');
+      const button = document.getElementById('btnMonitoringWorkspace');
+      if (!panel) return;
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !shouldOpen);
+      if (button) {
+        button.innerHTML = shouldOpen ? '✕ Tutup Monitoring' : '📊 Monitoring Petugas';
+        button.classList.toggle('bg-violet-800', shouldOpen);
+        button.classList.toggle('bg-violet-600', !shouldOpen);
+      }
+      if (shouldOpen) {
+        loadBaselineTargetForPeriod();
+        renderPetugasMonitoring();
+        setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      }
+    }
+
     function getSelectedMonitoringPeriod() {
       return document.getElementById('baselinePeriod')?.value || currentMonthValue();
+    }
+
+    function getResultDayKey(row, period) {
+      const raw = String(row.waktu || row.created_at || row.tanggal || '').trim();
+      // Format lokal yang umum: dd/mm/yyyy, dd-mm-yyyy, atau dd.mm.yyyy.
+      let match = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      if (match) {
+        const year = Number(match[3].length === 2 ? `20${match[3]}` : match[3]);
+        const month = Number(match[2]);
+        const day = Number(match[1]);
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+          return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        }
+      }
+      // Format ISO: YYYY-MM-DD...
+      match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) {
+        return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`;
+      }
+      return '';
     }
 
     function renderPetugasMonitoring() {
@@ -554,25 +606,51 @@
       const targetEach = baseline ? Number(baseline.target_per_petugas) : 0;
       const codes = Array.from({length: 16}, (_, i) => `51806.${String(i + 1).padStart(2, '0')}`);
       const counts = new Map(codes.map(code => [code, 0]));
+      const daily = new Map(codes.map(code => [code, new Set()]));
       allResults.forEach(row => {
         if (resultMonth(row) !== period) return;
         const code = String(row.petugas || '').trim();
-        if (counts.has(code)) counts.set(code, counts.get(code) + 1);
+        if (!counts.has(code)) return;
+        counts.set(code, counts.get(code) + 1);
+        const dayKey = getResultDayKey(row, period);
+        if (dayKey.startsWith(period + '-')) daily.get(code).add(dayKey);
       });
       const fmt = n => Number(n || 0).toLocaleString('id-ID');
       const [year, month] = period.split('-').map(Number);
       const label = new Date(year, month - 1, 1).toLocaleDateString('id-ID', {month: 'long', year: 'numeric'});
       document.getElementById('monitoringPeriodLabel').textContent = label;
-      let totalRealization = 0;
+      let totalRealization = 0, totalShortage = 0;
       document.getElementById('monitoringTableBody').innerHTML = codes.map(code => {
-        const actual = counts.get(code) || 0; totalRealization += actual;
+        const actual = counts.get(code) || 0;
+        const shortage = Math.max(0, targetEach - actual);
+        totalRealization += actual; totalShortage += shortage;
         const pct = targetEach > 0 ? Math.round(actual / targetEach * 100) : 0;
         const status = targetEach <= 0 ? 'Target belum diatur' : actual > targetEach ? 'Melampaui target' : actual === targetEach ? 'Target tercapai' : 'Belum tercapai';
         const style = targetEach <= 0 ? 'bg-slate-100 text-slate-600' : actual >= targetEach ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
-        return `<tr class="hover:bg-slate-50"><td class="p-3 font-mono font-bold">${code}</td><td class="p-3 text-right">${fmt(targetEach)}</td><td class="p-3 text-right font-extrabold">${fmt(actual)}</td><td class="p-3 text-right font-bold">${targetEach > 0 ? pct + '%' : '-'}</td><td class="p-3"><span class="inline-block rounded-lg px-2.5 py-1 font-bold ${style}">${status}</span></td></tr>`;
+        const dateEntries = [...daily.get(code)].sort();
+        const datesHtml = dateEntries.length
+          ? `<span class="whitespace-nowrap text-slate-600">${dateEntries.map(date => date.slice(8,10)).join(', ')}</span>`
+          : '<span class="text-slate-400">-</span>';
+        return `<tr class="hover:bg-slate-50 h-8">
+          <td class="sticky left-0 z-20 bg-white p-1.5 font-mono font-extrabold whitespace-nowrap shadow-[2px_0_4px_rgba(15,23,42,0.08)]">${code}</td>
+          <td class="p-1.5 text-right whitespace-nowrap">${fmt(targetEach)}</td>
+          <td class="p-1.5 whitespace-nowrap">${datesHtml}</td>
+          <td class="p-1.5 text-right font-extrabold whitespace-nowrap">${fmt(actual)}</td>
+          <td class="p-1.5 text-right font-bold whitespace-nowrap ${shortage > 0 ? 'text-rose-600' : 'text-emerald-600'}">${targetEach > 0 ? fmt(shortage) : '-'}</td>
+          <td class="p-1.5 text-right font-bold whitespace-nowrap">${targetEach > 0 ? pct + '%' : '-'}</td>
+          <td class="p-1.5 whitespace-nowrap"><span class="inline-block rounded-md px-2 py-0.5 font-bold ${style}">${status}</span></td>
+        </tr>`;
       }).join('');
-      const totalTarget = targetEach * 16, totalPct = totalTarget > 0 ? Math.round(totalRealization / totalTarget * 100) : 0;
-      document.getElementById('monitoringTableFoot').innerHTML = `<tr><td class="p-3">TOTAL</td><td class="p-3 text-right">${fmt(totalTarget)}</td><td class="p-3 text-right">${fmt(totalRealization)}</td><td class="p-3 text-right">${totalTarget > 0 ? totalPct + '%' : '-'}</td><td class="p-3">${totalTarget > 0 ? (totalRealization >= totalTarget ? 'Target keseluruhan tercapai' : 'Masih ada kekurangan') : 'Atur target pokok'}</td></tr>`;
+      const totalTarget = targetEach * codes.length, totalPct = totalTarget > 0 ? Math.round(totalRealization / totalTarget * 100) : 0;
+      document.getElementById('monitoringTableFoot').innerHTML = `<tr class="h-8">
+        <td class="sticky left-0 z-20 bg-slate-50 p-1.5 shadow-[2px_0_4px_rgba(15,23,42,0.08)]">TOTAL</td>
+        <td class="p-1.5 text-right">${fmt(totalTarget)}</td>
+        <td class="p-1.5 text-slate-500">-</td>
+        <td class="p-1.5 text-right">${fmt(totalRealization)}</td>
+        <td class="p-1.5 text-right">${targetEach > 0 ? fmt(totalShortage) : '-'}</td>
+        <td class="p-1.5 text-right">${totalTarget > 0 ? totalPct + '%' : '-'}</td>
+        <td class="p-1.5">${totalTarget > 0 ? (totalRealization >= totalTarget ? 'Target keseluruhan tercapai' : 'Masih ada kekurangan') : 'Atur target pokok'}</td>
+      </tr>`;
     }
 
     async function saveBaselineTarget() {
