@@ -632,13 +632,13 @@
 
       const head = document.getElementById('monitoringTableHead');
       head.innerHTML = `<tr class="h-10">
-        <th rowspan="2" class="sticky left-0 z-40 bg-slate-900 p-1.5 text-left whitespace-nowrap align-middle">Petugas</th>
-        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle">Target</th>
+        <th rowspan="2" class="sticky left-0 z-40 bg-slate-700 p-1.5 text-left whitespace-nowrap align-middle">Petugas</th>
+        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-slate-700 text-white">Target</th>
         <th colspan="${days.length}" class="p-1.5 text-center bg-indigo-700 text-white tracking-wide border-x border-indigo-500">TANGGAL PENGERJAAN</th>
-        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle">Realisasi Total</th>
-        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle">Kekurangan</th>
-        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle">Persentase</th>
-        <th rowspan="2" class="p-1.5 text-left whitespace-nowrap align-middle">Keterangan</th>
+        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-teal-700 text-white">Realisasi Total</th>
+        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-rose-700 text-white">Kekurangan</th>
+        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-sky-700 text-white">Persentase</th>
+        <th rowspan="2" class="p-1.5 text-left whitespace-nowrap align-middle bg-slate-700 text-white">Keterangan</th>
       </tr><tr class="h-9 text-xs">${days.map(day => `<th class="p-1 text-center min-w-[28px] bg-slate-100 text-slate-700 border border-slate-200">${String(day).padStart(2,'0')}</th>`).join('')}</tr>`;
 
       let totalRealization = 0, totalShortage = 0;
@@ -653,16 +653,16 @@
         const dayCells = days.map(day => {
           const value = daily.get(code).get(day) || 0;
           const cellStyle = value > 0 ? 'bg-white text-slate-800 font-semibold' : 'bg-slate-50 text-slate-300';
-          return `<td class="p-1.5 text-center tabular-nums border-b border-slate-100 min-w-[30px] ${cellStyle}">${value || '–'}</td>`;
+          return `<td class="p-1 text-center tabular-nums border-b border-r border-slate-200 min-w-[30px] ${cellStyle}">${value || '–'}</td>`;
         }).join('');
-        return `<tr class="hover:bg-indigo-50/60 h-9 text-xs">
-          <td class="sticky left-0 z-20 bg-white p-2 font-mono font-extrabold text-xs whitespace-nowrap shadow-[2px_0_4px_rgba(15,23,42,0.08)]">${code}</td>
-          <td class="p-1.5 text-right whitespace-nowrap">${fmt(targetEach)}</td>
+        return `<tr class="hover:bg-indigo-50/60 h-7 text-xs border-b border-slate-200">
+          <td class="sticky left-0 z-20 bg-slate-50 p-1.5 font-mono font-extrabold text-xs whitespace-nowrap border-b border-r border-slate-200 shadow-[2px_0_4px_rgba(15,23,42,0.08)]">${code}</td>
+          <td class="p-1 text-right whitespace-nowrap bg-slate-50 border-b border-r border-slate-200">${fmt(targetEach)}</td>
           ${dayCells}
-          <td class="p-1.5 text-right font-extrabold whitespace-nowrap">${fmt(actual)}</td>
-          <td class="p-1.5 text-right font-bold whitespace-nowrap ${shortage > 0 ? 'text-rose-600' : 'text-emerald-600'}">${targetEach > 0 ? fmt(shortage) : '-'}</td>
-          <td class="p-1.5 text-right font-bold whitespace-nowrap">${targetEach > 0 ? pct + '%' : '-'}</td>
-          <td class="p-1.5 whitespace-nowrap"><span class="inline-block rounded-md px-1.5 py-0.5 font-bold ${style}">${status}</span></td>
+          <td class="p-1 text-right font-extrabold whitespace-nowrap bg-teal-50 border-b border-l border-slate-200">${fmt(actual)}</td>
+          <td class="p-1 text-right font-bold whitespace-nowrap bg-rose-50 border-b border-l border-slate-200 ${shortage > 0 ? 'text-rose-600' : 'text-emerald-600'}">${targetEach > 0 ? fmt(shortage) : '-'}</td>
+          <td class="p-1 text-right font-bold whitespace-nowrap bg-sky-50 border-b border-l border-slate-200">${targetEach > 0 ? pct + '%' : '-'}</td>
+          <td class="p-1 whitespace-nowrap border-b border-l border-slate-200"><span class="inline-block rounded-md px-1.5 py-0.5 font-bold ${style}">${status}</span></td>
         </tr>`;
       }).join('');
 
@@ -672,8 +672,8 @@
         const dayTotal = codes.reduce((sum, code) => sum + (daily.get(code).get(day) || 0), 0);
         return `<td class="p-1.5 text-center border-b border-slate-200 bg-slate-100 font-bold">${dayTotal || ''}</td>`;
       }).join('') : '<td class="p-1 text-center">-</td>';
-      document.getElementById('monitoringTableFoot').innerHTML = `<tr class="h-9">
-        <td class="sticky left-0 z-20 bg-slate-50 p-1.5 shadow-[2px_0_4px_rgba(15,23,42,0.08)]">TOTAL</td>
+      document.getElementById('monitoringTableFoot').innerHTML = `<tr class="h-7 border-t-2 border-slate-300">
+        <td class="sticky left-0 z-20 bg-slate-200 p-1.5 shadow-[2px_0_4px_rgba(15,23,42,0.08)] border-r border-slate-300">TOTAL</td>
         <td class="p-1.5 text-right">${fmt(totalTarget)}</td>
         ${totalDayCells}
         <td class="p-1.5 text-right">${fmt(totalRealization)}</td>
