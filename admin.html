@@ -641,8 +641,8 @@
 
       const head = document.getElementById('monitoringTableHead');
       head.innerHTML = `<tr class="h-10">
-        <th rowspan="2" class="sticky left-0 z-40 bg-slate-700 p-1.5 text-left whitespace-nowrap align-middle">Petugas</th>
-        <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-slate-700 text-white">Target</th>
+        <th rowspan="2" class="sticky left-0 z-50 bg-slate-700 p-1.5 text-left whitespace-nowrap align-middle w-[84px] min-w-[84px]">Petugas</th>
+        <th rowspan="2" class="sticky left-[84px] z-50 p-1.5 text-right whitespace-nowrap align-middle bg-slate-700 text-white w-[72px] min-w-[72px] border-r-2 border-slate-400 shadow-[3px_0_5px_rgba(15,23,42,0.12)]">Target</th>
         <th colspan="${days.length}" class="p-1.5 text-center bg-indigo-700 text-white tracking-wide border-x-2 border-indigo-400">TANGGAL PENGERJAAN</th>
         <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-teal-700 text-white">Realisasi Total</th>
         <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-rose-700 text-white">Kekurangan</th>
@@ -665,8 +665,8 @@
           return `<td class="p-1 text-center tabular-nums border-b-2 border-r-2 border-slate-300 min-w-[30px] ${cellStyle}">${value || '–'}</td>`;
         }).join('');
         return `<tr class="hover:bg-indigo-50/60 h-7 text-xs border-b border-slate-200">
-          <td class="sticky left-0 z-20 bg-slate-50 p-1.5 font-mono font-extrabold text-xs whitespace-nowrap border-b-2 border-r-2 border-slate-300 shadow-[2px_0_4px_rgba(15,23,42,0.08)]">${code}</td>
-          <td class="p-1 text-right whitespace-nowrap bg-slate-50 border-b-2 border-r-2 border-slate-300">${fmt(targetEach)}</td>
+          <td class="sticky left-0 z-30 bg-slate-50 p-1.5 font-mono font-extrabold text-xs whitespace-nowrap w-[84px] min-w-[84px] border-b-2 border-r-2 border-slate-300 shadow-[2px_0_4px_rgba(15,23,42,0.08)]">${code}</td>
+          <td class="sticky left-[84px] z-30 p-1 text-right whitespace-nowrap bg-slate-50 w-[72px] min-w-[72px] border-b-2 border-r-2 border-slate-300 shadow-[3px_0_5px_rgba(15,23,42,0.10)]">${fmt(targetEach)}</td>
           ${dayCells}
           <td class="p-1 text-right font-extrabold whitespace-nowrap bg-teal-50 border-b-2 border-l-2 border-slate-300">${fmt(actual)}</td>
           <td class="p-1 text-right font-bold whitespace-nowrap bg-rose-50 border-b-2 border-l-2 border-slate-300 ${shortage > 0 ? 'text-rose-600' : 'text-emerald-600'}">${targetEach > 0 ? fmt(shortage) : '-'}</td>
@@ -682,8 +682,8 @@
         return `<td class="p-1.5 text-center border-b-2 border-r-2 border-slate-300 bg-slate-100 font-bold">${dayTotal || ''}</td>`;
       }).join('') : '<td class="p-1 text-center">-</td>';
       document.getElementById('monitoringTableFoot').innerHTML = `<tr class="h-7 border-t-2 border-slate-400">
-        <td class="sticky left-0 z-20 bg-slate-200 p-1.5 shadow-[2px_0_4px_rgba(15,23,42,0.08)] border-r-2 border-slate-400">TOTAL</td>
-        <td class="p-1.5 text-right">${fmt(totalTarget)}</td>
+        <td class="sticky left-0 z-30 bg-slate-200 p-1.5 w-[84px] min-w-[84px] shadow-[2px_0_4px_rgba(15,23,42,0.08)] border-r-2 border-slate-400">TOTAL</td>
+        <td class="sticky left-[84px] z-30 bg-slate-200 p-1.5 text-right w-[72px] min-w-[72px] border-r-2 border-slate-400 shadow-[3px_0_5px_rgba(15,23,42,0.10)]">${fmt(totalTarget)}</td>
         ${totalDayCells}
         <td class="p-1.5 text-right">${fmt(totalRealization)}</td>
         <td class="p-1.5 text-right">${targetEach > 0 ? fmt(totalShortage) : '-'}</td>
