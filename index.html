@@ -474,17 +474,35 @@
         periodSelect.innerHTML = '<option value="">Menghubungkan ke Supabase...</option>';
       }
       try {
-        const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
-          supabaseClient.from('targets').select('*')
-            .eq('petugas', currentPetugas).order('id', { ascending: true }),
-          supabaseClient.from('results').select('*')
-            .eq('petugas', currentPetugas).order('id', { ascending: false })
-        ]);
-        if (tErr) throw tErr;
-        if (rErr) throw rErr;
+        // Supabase REST membatasi hasil SELECT per permintaan (umumnya 1.000 baris).
+        // Ambil bertahap agar seluruh target dan hasil petugas termuat, bukan hanya 1.000 pertama.
+        async function fetchAllPetugasRows(tableName, ascending) {
+          const pageSize = 1000;
+          let offset = 0;
+          const rows = [];
+          while (true) {
+            const { data, error } = await supabaseClient
+              .from(tableName)
+              .select('*')
+              .eq('petugas', currentPetugas)
+              .order('id', { ascending })
+              .range(offset, offset + pageSize - 1);
+            if (error) throw error;
+            const batch = data || [];
+            rows.push(...batch);
+            if (batch.length < pageSize) break;
+            offset += pageSize;
+          }
+          return rows;
+        }
 
-        myTargets = tData || [];
-        myResults = rData || [];
+        const [tData, rData] = await Promise.all([
+          fetchAllPetugasRows('targets', true),
+          fetchAllPetugasRows('results', false)
+        ]);
+
+        myTargets = tData;
+        myResults = rData;
         populatePeriodFilter();
         try {
           localStorage.setItem(`wo_cache_targets_${currentPetugas}`, JSON.stringify(myTargets));
