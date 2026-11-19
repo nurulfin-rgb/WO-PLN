@@ -156,7 +156,7 @@
       <!-- Pencarian & Tombol Sync -->
       <div class="flex gap-2">
         <div class="relative flex-1">
-          <input type="text" id="searchTarget" oninput="renderPetugasList()" placeholder="Cari IDPEL, Nama, atau Alamat..." class="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500" />
+          <input type="text" id="searchTarget" oninput="targetPage=1; renderPetugasList()" placeholder="Cari IDPEL, Nama, atau Alamat..." class="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500" />
           <span class="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
         </div>
         <button onclick="loadPetugasData(true)" class="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-sm active:scale-95 transition shrink-0">
@@ -168,6 +168,13 @@
       <div id="targetListContainer" class="space-y-3">
         <div class="bg-white rounded-2xl p-8 text-center text-xs text-slate-400 border border-slate-200">
           Memuat data target...
+        </div>
+      </div>
+      <div id="targetPagination" class="hidden mt-4 rounded-2xl border border-slate-200 bg-white p-3 flex items-center justify-between gap-2">
+        <div id="targetPageInfo" class="text-[11px] font-semibold text-slate-500">Menampilkan 0 data</div>
+        <div class="flex gap-2 shrink-0">
+          <button id="targetPrevPage" type="button" onclick="changeTargetPage(-1)" class="px-3 py-2 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+          <button id="targetNextPage" type="button" onclick="changeTargetPage(1)" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-extrabold disabled:opacity-40 disabled:cursor-not-allowed">›</button>
         </div>
       </div>
     </section>
@@ -293,7 +300,6 @@
     let currentPetugas = localStorage.getItem('wo_pln_petugas') || '';
     let myTargets = [];
     let myResults = [];
-    let selectedPeriod = localStorage.getItem('wo_pln_periode') || '';
     let statusFilter = 'ALL';
     let rbmFilter = 'ALL';
     let selectedCompressedBlob = null;
@@ -453,40 +459,17 @@
 
       setConnectionState('loading', 'Mengambil data dari Supabase...');
       try {
-        // Supabase membatasi jumlah baris per permintaan (sering kali 1.000).
-        // Ambil data per halaman agar target periode berikutnya tidak terpotong.
-        async function fetchAllPetugasRows(tableName, ascending) {
-          const pageSize = 1000;
-          let offset = 0;
-          let allRows = [];
-
-          while (true) {
-            const { data, error } = await supabaseClient
-              .from(tableName)
-              .select('*')
-              .eq('petugas', currentPetugas)
-              .order('id', { ascending })
-              .range(offset, offset + pageSize - 1);
-
-            if (error) throw error;
-
-            const rows = data || [];
-            allRows = allRows.concat(rows);
-
-            if (rows.length < pageSize) break;
-            offset += pageSize;
-          }
-
-          return allRows;
-        }
-
-        const [tData, rData] = await Promise.all([
-          fetchAllPetugasRows('targets', true),
-          fetchAllPetugasRows('results', false)
+        const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
+          supabaseClient.from('targets').select('*')
+            .eq('petugas', currentPetugas).order('id', { ascending: true }),
+          supabaseClient.from('results').select('*')
+            .eq('petugas', currentPetugas).order('id', { ascending: false })
         ]);
+        if (tErr) throw tErr;
+        if (rErr) throw rErr;
 
-        myTargets = tData;
-        myResults = rData;
+        myTargets = tData || [];
+        myResults = rData || [];
         populatePeriodFilter();
         try {
           localStorage.setItem(`wo_cache_targets_${currentPetugas}`, JSON.stringify(myTargets));
@@ -526,8 +509,8 @@
     function normalizePeriod(value) {
       if (value === null || value === undefined || value === '') return '';
       const raw = String(value).trim();
-      if (/^\d{4}-\d{2}$/.test(raw)) return raw;
-      const m = raw.match(/^(\d{1,2})[\/-](\d{4})$/);
+      if (/^\\d{4}-\\d{2}$/.test(raw)) return raw;
+      const m = raw.match(/^(\\d{1,2})[\\/-](\\d{4})$/);
       if (m) return `${m[2]}-${m[1].padStart(2, '0')}`;
       const d = new Date(raw);
       if (!Number.isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}`;
@@ -535,17 +518,15 @@
     }
 
     function getResultPeriod(result) {
-      // Periode target yang tersimpan eksplisit menjadi acuan utama.
+      // Prioritaskan periode target yang disimpan eksplisit.
       const explicit = normalizePeriod(result.periode || result.period);
       if (explicit) return explicit;
-
-      // Laporan lama tanpa periode: baca tanggal laporan dd/mm/yy atau dd/mm/yyyy.
+      // Kompatibilitas laporan lama: ambil bulan dari kolom waktu.
       const raw = String(result.waktu || '').trim();
-      const match = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+      const match = raw.match(/^(\\d{1,2})[\\/](\\d{1,2})[\\/](\\d{2,4})/);
       if (match) {
         const year = match[3].length === 2 ? `20${match[3]}` : match[3];
-        const month = Number(match[2]);
-        if (month >= 1 && month <= 12) return `${year}-${String(month).padStart(2, '0')}`;
+        return `${year}-${match[2].padStart(2, '0')}`;
       }
       const parsed = new Date(raw);
       return Number.isNaN(parsed.getTime()) ? '' : `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2, '0')}`;
@@ -577,17 +558,20 @@
     }
 
     function setPeriodFilter(period) {
+      targetPage = 1;
       selectedPeriod = normalizePeriod(period);
       localStorage.setItem('wo_pln_periode', selectedPeriod);
       renderPetugasList();
     }
 
     function setRbmFilter(filter) {
+      targetPage = 1;
       rbmFilter = filter || 'ALL';
       renderPetugasList();
     }
 
     function setStatusFilter(filter) {
+      targetPage = 1;
       statusFilter = filter;
       const map = { ALL: 'tabAll', BELUM: 'tabBelum', SELESAI: 'tabSelesai' };
       Object.keys(map).forEach(key => {
@@ -602,6 +586,15 @@
     }
 
     // 8. RENDER DAFTAR TARGET WO
+    const TARGETS_PER_PAGE = 50;
+    let targetPage = 1;
+
+    function changeTargetPage(delta) {
+      targetPage = Math.max(1, targetPage + delta);
+      renderPetugasList();
+      document.getElementById('targetListContainer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function renderPetugasList() {
       const periodTargets = myTargets.filter(t => getTargetPeriod(t) === selectedPeriod);
       const periodResults = myResults.filter(r => getResultPeriod(r) === selectedPeriod);
@@ -631,7 +624,14 @@
       });
 
       const container = document.getElementById('targetListContainer');
+      const pagination = document.getElementById('targetPagination');
+      const totalPages = Math.max(1, Math.ceil(filtered.length / TARGETS_PER_PAGE));
+      targetPage = Math.min(Math.max(1, targetPage), totalPages);
+      const startIndex = (targetPage - 1) * TARGETS_PER_PAGE;
+      const pageItems = filtered.slice(startIndex, startIndex + TARGETS_PER_PAGE);
+
       if (filtered.length === 0) {
+        if (pagination) pagination.classList.add('hidden');
         container.innerHTML = `
           <div class="bg-white rounded-2xl p-8 text-center text-xs text-slate-400 border border-slate-200">
             <div class="text-2xl mb-1.5">📋</div>
@@ -641,7 +641,7 @@
         return;
       }
 
-      container.innerHTML = filtered.map(item => {
+      container.innerHTML = pageItems.map(item => {
         const idpelKey = String(item.idpel).trim();
         const res = doneMap.get(idpelKey);
         const isDone = Boolean(res);
@@ -684,14 +684,19 @@
           </div>
         `;
       }).join('');
+
+      if (pagination) pagination.classList.toggle('hidden', filtered.length <= TARGETS_PER_PAGE);
+      const pageInfo = document.getElementById('targetPageInfo');
+      if (pageInfo) pageInfo.textContent = `Menampilkan ${startIndex + 1}–${Math.min(startIndex + pageItems.length, filtered.length)} dari ${filtered.length.toLocaleString('id-ID')} target`;
+      const prev = document.getElementById('targetPrevPage');
+      const next = document.getElementById('targetNextPage');
+      if (prev) prev.disabled = targetPage <= 1;
+      if (next) next.disabled = targetPage >= totalPages;
     }
 
     // 9. MODAL PENGERJAAN WO
     function openModalByIdpel(idpel) {
-      const item = myTargets.find(t =>
-        String(t.idpel).trim() === String(idpel).trim() &&
-        getTargetPeriod(t) === selectedPeriod
-      );
+      const item = myTargets.find(t => String(t.idpel).trim() === String(idpel).trim());
       if (!item) return;
 
       document.getElementById('mIdpel').value = item.idpel;
