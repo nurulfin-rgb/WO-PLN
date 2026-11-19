@@ -123,7 +123,7 @@
       <!-- Filter Periode Target -->
       <div>
         <label for="filterPeriode" class="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">Pilih Periode Target</label>
-        <select id="filterPeriode" onchange="setPeriodFilter(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+        <select id="filterPeriode" disabled onchange="setPeriodFilter(this.value)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
           <option value="">Memuat periode...</option>
         </select>
       </div>
@@ -449,6 +449,11 @@
       if (!supabaseClient) {
         const reason = 'Library Supabase tidak termuat. Periksa internet/CDN atau cache aplikasi.';
         setConnectionState('offline', reason);
+        const periodSelect = document.getElementById('filterPeriode');
+        if (periodSelect) {
+          periodSelect.disabled = true;
+          periodSelect.innerHTML = '<option value="">Supabase tidak tersedia</option>';
+        }
         showPetugasCache(reason, notify);
         if (notify) showToast(reason, 'error');
         return;
@@ -459,7 +464,12 @@
         return;
       }
 
-      setConnectionState('loading', 'Mengambil data dari Supabase...');
+      setConnectionState('loading', 'Menghubungkan ke Supabase...');
+      const periodSelect = document.getElementById('filterPeriode');
+      if (periodSelect) {
+        periodSelect.disabled = true;
+        periodSelect.innerHTML = '<option value="">Menghubungkan ke Supabase...</option>';
+      }
       try {
         const [{ data: tData, error: tErr }, { data: rData, error: rErr }] = await Promise.all([
           supabaseClient.from('targets').select('*')
@@ -486,6 +496,10 @@
       } catch (err) {
         console.error('Gagal memuat data petugas:', err);
         const reason = getSupabaseErrorMessage(err);
+        if (periodSelect) {
+          periodSelect.disabled = true;
+          periodSelect.innerHTML = '<option value="">Gagal memuat periode — tekan Sync</option>';
+        }
         // Tampilkan penyebab koneksi pada status agar mudah didiagnosis.
         setConnectionState('cache', `Offline • ${reason}`);
         showPetugasCache(reason, notify);
@@ -547,26 +561,28 @@
       if (!select) return;
       const periods = [...new Set(myTargets.map(getTargetPeriod).filter(Boolean))].sort().reverse();
       if (!periods.length) {
-        select.innerHTML = '<option value="">Periode tidak ditemukan</option>';
-        selectedPeriod = '';
+        select.innerHTML = '<option value="">Periode tidak tersedia</option>';
+        select.disabled = true;
+        window.selectedPeriod = '';
         return;
       }
       const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2, '0')}`;
-      if (!periods.includes(selectedPeriod)) {
-        selectedPeriod = periods.includes(currentMonth) ? currentMonth : periods[0];
+      if (!periods.includes(window.selectedPeriod)) {
+        window.selectedPeriod = periods.includes(currentMonth) ? currentMonth : periods[0];
       }
       select.innerHTML = periods.map(period => {
         const [year, month] = period.split('-');
         const label = new Date(Number(year), Number(month)-1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-        return `<option value="${period}" ${period === selectedPeriod ? 'selected' : ''}>${label}</option>`;
+        return `<option value="${period}" ${period === window.selectedPeriod ? 'selected' : ''}>${label}</option>`;
       }).join('');
-      localStorage.setItem('wo_pln_periode', selectedPeriod);
+      select.disabled = false;
+      localStorage.setItem('wo_pln_periode', window.selectedPeriod);
     }
 
     function setPeriodFilter(period) {
       targetPage = 1;
-      selectedPeriod = normalizePeriod(period);
-      localStorage.setItem('wo_pln_periode', selectedPeriod);
+      window.selectedPeriod = normalizePeriod(period);
+      localStorage.setItem('wo_pln_periode', window.selectedPeriod);
       renderPetugasList();
     }
 
@@ -602,8 +618,8 @@
     }
 
     function renderPetugasList() {
-      const periodTargets = myTargets.filter(t => getTargetPeriod(t) === selectedPeriod);
-      const periodResults = myResults.filter(r => getResultPeriod(r) === selectedPeriod);
+      const periodTargets = myTargets.filter(t => getTargetPeriod(t) === window.selectedPeriod);
+      const periodResults = myResults.filter(r => getResultPeriod(r) === window.selectedPeriod);
       const doneMap = new Map();
       periodResults.forEach(r => doneMap.set(String(r.idpel).trim(), r));
 
@@ -641,7 +657,7 @@
         container.innerHTML = `
           <div class="bg-white rounded-2xl p-8 text-center text-xs text-slate-400 border border-slate-200">
             <div class="text-2xl mb-1.5">📋</div>
-            Tidak ada target WO untuk periode <strong>${selectedPeriod || '-'}</strong>, RBM, atau pencarian yang dipilih untuk kode <strong class="font-mono text-slate-600">${currentPetugas}</strong>.
+            Tidak ada target WO untuk periode <strong>${window.selectedPeriod || '-'}</strong>, RBM, atau pencarian yang dipilih untuk kode <strong class="font-mono text-slate-600">${currentPetugas}</strong>.
           </div>
         `;
         return;
@@ -954,7 +970,7 @@
 
         const insertPayload = {
           waktu: nowStr,
-          periode: selectedPeriod,
+          periode: window.selectedPeriod,
           petugas: currentPetugas,
           idpel,
           nama: document.getElementById('mNamaVal').value,
