@@ -219,11 +219,12 @@
       <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
         <div class="flex items-center gap-2">
           <h2 class="font-extrabold text-base text-slate-900">Hasil Pekerjaan Lapangan</h2>
-          <span class="text-[11px] text-slate-400 hidden sm:inline">• Auto-sync setiap 15 detik</span>
+          <span class="text-[11px] text-slate-400 hidden sm:inline">• Auto-sync setiap 60 detik</span>
         </div>
-        <span id="badgeCount" class="px-3 py-1 rounded-full bg-slate-900 text-amber-400 text-xs font-extrabold">
-          0 Data
-        </span>
+        <div class="flex items-center gap-2">
+          <span id="badgeCount" class="px-3 py-1 rounded-full bg-slate-900 text-amber-400 text-xs font-extrabold">0 Data</span>
+          <button type="button" onclick="confirmDeleteAllResults()" class="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-extrabold">🗑️ Hapus Semua Hasil</button>
+        </div>
       </div>
 
       <div class="overflow-x-auto">
@@ -314,10 +315,11 @@
       <div class="mt-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
         <div>
           <label for="targetPeriodFilter" class="block text-xs font-bold text-slate-600 mb-1">Tampilkan target periode</label>
-          <select id="targetPeriodFilter" onchange="renderTargetModalTable()" class="w-full sm:w-64 px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold">
+          <select id="targetPeriodFilter" onchange="targetModalPage=1; renderTargetModalTable()" class="w-full sm:w-64 px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold">
             <option value="ALL">Semua Periode</option>
           </select>
           <p id="targetPeriodCount" class="text-[11px] text-slate-500 mt-1">Pilih satu periode untuk menghapus seluruh target pada bulan tersebut.</p>
+          <input id="targetModalSearch" type="search" oninput="targetModalPage=1; renderTargetModalTable()" placeholder="Cari IDPEL, nama, atau petugas..." class="mt-2 w-full sm:w-80 px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs" />
         </div>
         <button id="btnDeletePeriodTargets" type="button" onclick="confirmDeletePeriodTargets()"
           class="px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold disabled:opacity-40 disabled:cursor-not-allowed"
@@ -340,6 +342,13 @@
           </thead>
           <tbody id="targetModalBody" class="divide-y divide-slate-100"></tbody>
         </table>
+      </div>
+      <div class="flex items-center justify-between gap-2 pt-3">
+        <span id="targetModalPageInfo" class="text-[11px] text-slate-500">Menampilkan 0 data</span>
+        <div class="flex gap-2">
+          <button id="targetModalPrev" type="button" onclick="changeTargetModalPage(-1)" class="px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold disabled:opacity-40">‹ Sebelumnya</button>
+          <button id="targetModalNext" type="button" onclick="changeTargetModalPage(1)" class="px-3 py-2 rounded-lg border border-slate-300 text-xs font-bold disabled:opacity-40">Berikutnya ›</button>
+        </div>
       </div>
     </div>
   </div>
@@ -634,12 +643,12 @@
       head.innerHTML = `<tr class="h-10">
         <th rowspan="2" class="sticky left-0 z-40 bg-slate-700 p-1.5 text-left whitespace-nowrap align-middle">Petugas</th>
         <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-slate-700 text-white">Target</th>
-        <th colspan="${days.length}" class="p-1.5 text-center bg-indigo-700 text-white tracking-wide border-x border-indigo-500">TANGGAL PENGERJAAN</th>
+        <th colspan="${days.length}" class="p-1.5 text-center bg-indigo-700 text-white tracking-wide border-x-2 border-indigo-400">TANGGAL PENGERJAAN</th>
         <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-teal-700 text-white">Realisasi Total</th>
         <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-rose-700 text-white">Kekurangan</th>
         <th rowspan="2" class="p-1.5 text-right whitespace-nowrap align-middle bg-sky-700 text-white">Persentase</th>
         <th rowspan="2" class="p-1.5 text-left whitespace-nowrap align-middle bg-slate-700 text-white">Keterangan</th>
-      </tr><tr class="h-9 text-xs">${days.map(day => `<th class="p-1 text-center min-w-[28px] bg-slate-100 text-slate-700 border border-slate-200">${String(day).padStart(2,'0')}</th>`).join('')}</tr>`;
+      </tr><tr class="h-9 text-xs">${days.map(day => `<th class="p-1 text-center min-w-[28px] bg-slate-100 text-slate-700 border-x-2 border-b-2 border-slate-300">${String(day).padStart(2,'0')}</th>`).join('')}</tr>`;
 
       let totalRealization = 0, totalShortage = 0;
       document.getElementById('monitoringTableBody').innerHTML = codes.map(code => {
@@ -653,16 +662,16 @@
         const dayCells = days.map(day => {
           const value = daily.get(code).get(day) || 0;
           const cellStyle = value > 0 ? 'bg-white text-slate-800 font-semibold' : 'bg-slate-50 text-slate-300';
-          return `<td class="p-1 text-center tabular-nums border-b border-r border-slate-200 min-w-[30px] ${cellStyle}">${value || '–'}</td>`;
+          return `<td class="p-1 text-center tabular-nums border-b-2 border-r-2 border-slate-300 min-w-[30px] ${cellStyle}">${value || '–'}</td>`;
         }).join('');
         return `<tr class="hover:bg-indigo-50/60 h-7 text-xs border-b border-slate-200">
-          <td class="sticky left-0 z-20 bg-slate-50 p-1.5 font-mono font-extrabold text-xs whitespace-nowrap border-b border-r border-slate-200 shadow-[2px_0_4px_rgba(15,23,42,0.08)]">${code}</td>
-          <td class="p-1 text-right whitespace-nowrap bg-slate-50 border-b border-r border-slate-200">${fmt(targetEach)}</td>
+          <td class="sticky left-0 z-20 bg-slate-50 p-1.5 font-mono font-extrabold text-xs whitespace-nowrap border-b-2 border-r-2 border-slate-300 shadow-[2px_0_4px_rgba(15,23,42,0.08)]">${code}</td>
+          <td class="p-1 text-right whitespace-nowrap bg-slate-50 border-b-2 border-r-2 border-slate-300">${fmt(targetEach)}</td>
           ${dayCells}
-          <td class="p-1 text-right font-extrabold whitespace-nowrap bg-teal-50 border-b border-l border-slate-200">${fmt(actual)}</td>
-          <td class="p-1 text-right font-bold whitespace-nowrap bg-rose-50 border-b border-l border-slate-200 ${shortage > 0 ? 'text-rose-600' : 'text-emerald-600'}">${targetEach > 0 ? fmt(shortage) : '-'}</td>
-          <td class="p-1 text-right font-bold whitespace-nowrap bg-sky-50 border-b border-l border-slate-200">${targetEach > 0 ? pct + '%' : '-'}</td>
-          <td class="p-1 whitespace-nowrap border-b border-l border-slate-200"><span class="inline-block rounded-md px-1.5 py-0.5 font-bold ${style}">${status}</span></td>
+          <td class="p-1 text-right font-extrabold whitespace-nowrap bg-teal-50 border-b-2 border-l-2 border-slate-300">${fmt(actual)}</td>
+          <td class="p-1 text-right font-bold whitespace-nowrap bg-rose-50 border-b-2 border-l-2 border-slate-300 ${shortage > 0 ? 'text-rose-600' : 'text-emerald-600'}">${targetEach > 0 ? fmt(shortage) : '-'}</td>
+          <td class="p-1 text-right font-bold whitespace-nowrap bg-sky-50 border-b-2 border-l-2 border-slate-300">${targetEach > 0 ? pct + '%' : '-'}</td>
+          <td class="p-1 whitespace-nowrap border-b-2 border-l-2 border-slate-300"><span class="inline-block rounded-md px-1.5 py-0.5 font-bold ${style}">${status}</span></td>
         </tr>`;
       }).join('');
 
@@ -670,10 +679,10 @@
       const totalPct = totalTarget > 0 ? Math.round(totalRealization / totalTarget * 100) : 0;
       const totalDayCells = days.length ? days.map(day => {
         const dayTotal = codes.reduce((sum, code) => sum + (daily.get(code).get(day) || 0), 0);
-        return `<td class="p-1.5 text-center border-b border-slate-200 bg-slate-100 font-bold">${dayTotal || ''}</td>`;
+        return `<td class="p-1.5 text-center border-b-2 border-r-2 border-slate-300 bg-slate-100 font-bold">${dayTotal || ''}</td>`;
       }).join('') : '<td class="p-1 text-center">-</td>';
-      document.getElementById('monitoringTableFoot').innerHTML = `<tr class="h-7 border-t-2 border-slate-300">
-        <td class="sticky left-0 z-20 bg-slate-200 p-1.5 shadow-[2px_0_4px_rgba(15,23,42,0.08)] border-r border-slate-300">TOTAL</td>
+      document.getElementById('monitoringTableFoot').innerHTML = `<tr class="h-7 border-t-2 border-slate-400">
+        <td class="sticky left-0 z-20 bg-slate-200 p-1.5 shadow-[2px_0_4px_rgba(15,23,42,0.08)] border-r-2 border-slate-400">TOTAL</td>
         <td class="p-1.5 text-right">${fmt(totalTarget)}</td>
         ${totalDayCells}
         <td class="p-1.5 text-right">${fmt(totalRealization)}</td>
@@ -945,6 +954,9 @@
 
     // 11. MODAL KELOLA TARGET WO
     function openTargetModal() {
+      targetModalPage = 1;
+      const search = document.getElementById('targetModalSearch');
+      if (search) search.value = '';
       populateTargetPeriodFilter();
       renderTargetModalTable();
       const modal = document.getElementById('modalTargets');
@@ -979,58 +991,79 @@
       select.value = periods.includes(current) ? current : 'ALL';
     }
 
+    let targetModalPage = 1;
+    const TARGET_MODAL_PAGE_SIZE = 100;
+
+    function changeTargetModalPage(delta) {
+      targetModalPage = Math.max(1, targetModalPage + delta);
+      renderTargetModalTable();
+    }
+
     function renderTargetModalTable() {
-      // Status selesai dicocokkan berdasarkan IDPEL DAN periode agar pekerjaan
-      // bulan sebelumnya tidak membuat target bulan berikutnya ikut dianggap selesai.
       const doneSet = new Set(allResults.map(r => {
         const period = normalizeMonth(r.periode || r.period) || resultMonth(r);
         return `${period}|${String(r.idpel || '').trim()}`;
       }));
       const tbody = document.getElementById('targetModalBody');
       const selected = document.getElementById('targetPeriodFilter')?.value || 'ALL';
-      const visibleTargets = selected === 'ALL'
+      const search = (document.getElementById('targetModalSearch')?.value || '').trim().toLowerCase();
+      let visibleTargets = selected === 'ALL'
         ? allTargets
         : allTargets.filter(t => normalizeMonth(t.periode || t.period) === selected);
 
+      if (search) {
+        visibleTargets = visibleTargets.filter(t =>
+          [t.idpel, t.nama, t.petugas, t.alamat].some(v => String(v || '').toLowerCase().includes(search))
+        );
+      }
+
       const bulkDeleteButton = document.getElementById('btnDeletePeriodTargets');
       const periodCountLabel = document.getElementById('targetPeriodCount');
-      if (bulkDeleteButton) bulkDeleteButton.disabled = selected === 'ALL' || visibleTargets.length === 0;
+      if (bulkDeleteButton) bulkDeleteButton.disabled = selected === 'ALL' || !visibleTargets.length;
       if (periodCountLabel) {
+        const baseCount = selected === 'ALL' ? allTargets.length : allTargets.filter(t => normalizeMonth(t.periode || t.period) === selected).length;
         periodCountLabel.textContent = selected === 'ALL'
-          ? `Total ${allTargets.length} target dari semua periode. Pilih satu periode untuk menghapus target bulan tersebut.`
-          : `Periode ${selected}: ${visibleTargets.length} target. Tombol hapus hanya menghapus target periode ini.`;
+          ? `Total ${baseCount.toLocaleString('id-ID')} target. Pilih satu periode untuk menghapus target bulan tersebut.`
+          : `Periode ${selected}: ${baseCount.toLocaleString('id-ID')} target. Hasil pekerjaan dan foto tidak ikut terhapus.`;
       }
 
-      if (visibleTargets.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">Tidak ada target pada periode yang dipilih.</td></tr>`;
-        return;
-      }
+      const totalPages = Math.max(1, Math.ceil(visibleTargets.length / TARGET_MODAL_PAGE_SIZE));
+      targetModalPage = Math.min(targetModalPage, totalPages);
+      const from = (targetModalPage - 1) * TARGET_MODAL_PAGE_SIZE;
+      const pageTargets = visibleTargets.slice(from, from + TARGET_MODAL_PAGE_SIZE);
 
-      tbody.innerHTML = visibleTargets.map(t => {
-        const targetPeriod = normalizeMonth(t.periode || t.period);
-        const isDone = doneSet.has(`${targetPeriod}|${String(t.idpel || '').trim()}`);
-        const periodLabel = targetPeriod ? (() => { const [y,m] = targetPeriod.split('-'); return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }); })() : 'Belum diatur';
-        return `
-          <tr class="hover:bg-slate-50">
-            <td class="p-3 whitespace-nowrap"><span class="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 font-extrabold">${escapeHtml(periodLabel)}</span></td>
-            <td class="p-3 font-mono font-extrabold text-slate-900">${escapeHtml(t.petugas || '-')}</td>
-            <td class="p-3 font-mono font-bold text-slate-700">${escapeHtml(t.idpel || '-')}</td>
-            <td class="p-3 font-bold text-slate-900">${escapeHtml(t.nama || '-')}</td>
-            <td class="p-3"><span class="px-2 py-1 rounded-lg bg-violet-50 text-violet-700 font-extrabold">${escapeHtml(t.rbm || '-')}</span></td>
-            <td class="p-3 text-slate-600">${escapeHtml(t.alamat || '-')}</td>
-            <td class="p-3">${escapeHtml(t.tarif || '-')}/${escapeHtml(t.daya || '-')}</td>
-            <td class="p-3">
-              ${isDone
+      if (!pageTargets.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">Tidak ada target yang cocok.</td></tr>`;
+      } else {
+        tbody.innerHTML = pageTargets.map(t => {
+          const targetPeriod = normalizeMonth(t.periode || t.period);
+          const isDone = doneSet.has(`${targetPeriod}|${String(t.idpel || '').trim()}`);
+          const periodLabel = targetPeriod ? (() => { const [y,m] = targetPeriod.split('-'); return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }); })() : 'Belum diatur';
+          return `
+            <tr class="hover:bg-slate-50">
+              <td class="p-3 whitespace-nowrap"><span class="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 font-extrabold">${escapeHtml(periodLabel)}</span></td>
+              <td class="p-3 font-mono font-extrabold text-slate-900">${escapeHtml(t.petugas || '-')}</td>
+              <td class="p-3 font-mono font-bold text-slate-700">${escapeHtml(t.idpel || '-')}</td>
+              <td class="p-3 font-bold text-slate-900">${escapeHtml(t.nama || '-')}</td>
+              <td class="p-3"><span class="px-2 py-1 rounded-lg bg-violet-50 text-violet-700 font-extrabold">${escapeHtml(t.rbm || '-')}</span></td>
+              <td class="p-3 text-slate-600">${escapeHtml(t.alamat || '-')}</td>
+              <td class="p-3">${escapeHtml(t.tarif || '-')}/${escapeHtml(t.daya || '-')}</td>
+              <td class="p-3">${isDone
                 ? '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-extrabold text-[10px]">✔ Selesai</span>'
-                : '<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-extrabold text-[10px]">⏳ Belum</span>'}
-            </td>
-            <td class="p-3 text-center">
-              <button type="button" data-action="hapus-target"
-                data-id="${escapeHtml(t.id ?? '')}" data-idpel="${escapeHtml(t.idpel || '')}"
-                class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px] transition">Hapus</button>
-            </td>
-          </tr>`;
-      }).join('');
+                : '<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-extrabold text-[10px]">⏳ Belum</span>'}</td>
+              <td class="p-3 text-center"><button type="button" data-action="hapus-target" data-id="${escapeHtml(t.id ?? '')}" data-idpel="${escapeHtml(t.idpel || '')}" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-[11px]">Hapus</button></td>
+            </tr>`;
+        }).join('');
+      }
+
+      const pageInfo = document.getElementById('targetModalPageInfo');
+      if (pageInfo) pageInfo.textContent = visibleTargets.length
+        ? `Menampilkan ${from + 1}–${Math.min(from + pageTargets.length, visibleTargets.length)} dari ${visibleTargets.length.toLocaleString('id-ID')} target • Halaman ${targetModalPage}/${totalPages}`
+        : 'Menampilkan 0 data';
+      const prev = document.getElementById('targetModalPrev');
+      const next = document.getElementById('targetModalNext');
+      if (prev) prev.disabled = targetModalPage <= 1;
+      if (next) next.disabled = targetModalPage >= totalPages;
 
       tbody.onclick = event => {
         const button = event.target.closest('button[data-action="hapus-target"]');
