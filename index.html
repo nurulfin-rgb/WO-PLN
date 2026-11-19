@@ -447,8 +447,10 @@
     // 7. AMBIL DATA DARI SUPABASE
     async function loadPetugasData(notify = false) {
       if (!supabaseClient) {
-        setConnectionState('offline', 'Library Supabase tidak tersedia');
-        showPetugasCache('Library Supabase tidak tersedia', notify);
+        const reason = 'Library Supabase tidak termuat. Periksa internet/CDN atau cache aplikasi.';
+        setConnectionState('offline', reason);
+        showPetugasCache(reason, notify);
+        if (notify) showToast(reason, 'error');
         return;
       }
       if (isSandboxPreview) {
@@ -483,8 +485,12 @@
         if (notify) showToast('Data berhasil disinkronkan dari Supabase!', 'success');
       } catch (err) {
         console.error('Gagal memuat data petugas:', err);
-        setConnectionState('cache', 'Offline • menampilkan cache');
-        showPetugasCache(getSupabaseErrorMessage(err), notify);
+        const reason = getSupabaseErrorMessage(err);
+        // Tampilkan penyebab koneksi pada status agar mudah didiagnosis.
+        setConnectionState('cache', `Offline • ${reason}`);
+        showPetugasCache(reason, notify);
+        const statusText = document.getElementById('connText');
+        if (statusText) statusText.title = `Detail koneksi Supabase: ${reason}`;
       }
     }
 
